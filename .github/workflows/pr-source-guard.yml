@@ -1,0 +1,42 @@
+name: pr-source-guard
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+    branches: [development, laboratory, main]
+
+permissions: {}
+
+jobs:
+  source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar rama origen
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "PR: $HEAD_REPO:$HEAD -> $BASE"
+          case "$BASE" in
+            development)
+              if [ "$HEAD" = "laboratory" ] || [ "$HEAD" = "main" ]; then
+                echo "::error::No se permiten PRs desde $HEAD hacia development"
+                exit 1
+              fi
+              ;;
+            laboratory)
+              if [ "$HEAD" != "development" ] || [ "$HEAD_REPO" != "$REPO" ]; then
+                echo "::error::laboratory solo acepta PRs desde development"
+                exit 1
+              fi
+              ;;
+            main)
+              if [ "$HEAD" != "laboratory" ] || [ "$HEAD_REPO" != "$REPO" ]; then
+                echo "::error::main solo acepta PRs desde laboratory"
+                exit 1
+              fi
+              ;;
+          esac
+          echo "Origen permitido"
