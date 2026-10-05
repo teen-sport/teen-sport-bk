@@ -37,6 +37,7 @@ tasks.jacocoTestReport {
 	reports {
 		xml.required.set(true)
 		html.required.set(true)
+		csv.required.set(true)
 	}
 	classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExcludes) } }))
 }
