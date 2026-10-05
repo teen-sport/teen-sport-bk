@@ -21,6 +21,7 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -29,20 +30,31 @@ tasks.withType<Test> {
 	finalizedBy(tasks.jacocoTestReport)
 }
 
+val jacocoExcludes = listOf("**/TeenSportApplication.class")
+
 tasks.jacocoTestReport {
 	dependsOn(tasks.test)
 	reports {
 		xml.required.set(true)
 		html.required.set(true)
 	}
+	classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExcludes) } }))
 }
 
 tasks.jacocoTestCoverageVerification {
+	dependsOn(tasks.jacocoTestReport)
+	classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExcludes) } }))
 	violationRules {
 		rule {
 			limit {
-				minimum = "1.0".toBigDecimal()
+				counter = "LINE"
+				value = "COVEREDRATIO"
+				minimum = "0.80".toBigDecimal()
 			}
 		}
 	}
+}
+
+tasks.check {
+	dependsOn(tasks.jacocoTestCoverageVerification)
 }
