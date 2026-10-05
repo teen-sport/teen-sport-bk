@@ -3,6 +3,7 @@ plugins {
 	jacoco
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("org.sonarqube") version "7.5.0.8588"
 }
 
 group = "com.uniquindio"
@@ -58,4 +59,14 @@ tasks.jacocoTestCoverageVerification {
 
 tasks.check {
 	dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+sonar {
+	properties {
+		property("sonar.host.url", "https://sonarcloud.io")
+		property("sonar.organization", "teen-sport")
+		property("sonar.projectKey", "teen-sport_teen-sport-bk")
+		property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
+		property("sonar.coverage.exclusions", "**/TeenSportApplication.java")
+	}
 }
