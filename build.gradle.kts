@@ -20,7 +20,8 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -59,6 +60,14 @@ tasks.jacocoTestCoverageVerification {
 
 tasks.check {
 	dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.named<Jar>("jar") {
+	enabled = false
+}
+
+tasks.bootJar {
+	archiveFileName.set("app.jar")
 }
 
 sonar {
