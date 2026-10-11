@@ -8,6 +8,11 @@ El orden busca construir primero las capacidades de las que dependen los módulo
 - Añadir migraciones versionadas, formato de error, validación, OpenAPI y pruebas base.
 - Validar el contrato OpenAPI y decidir cuál archivo saneado será fuente de verdad.
 
+**Estado (2026-10-11): parcial.**
+- Hecho: Java 21 / Spring Boot 4.1.1 / Gradle confirmados; motor PostgreSQL (versión pendiente). Paquete `com.uniquindio.teen_sport` conservado; prefijo `/api/v1` en `config/WebConfig`; `HelloController` eliminado. Dependencias `spring-boot-starter-validation` y `springdoc-openapi-starter-webmvc-ui` 3.1.1. Un único ambiente general en `application.properties` (decisión: la configuración por ambientes se hará después y no se crean archivos `-dev`/`-prod`); mensajes de validación en español. Formato `Error`, `ErrorCode`, `BusinessException` y `GlobalExceptionHandler` (400, 404, errores de negocio). Pruebas base en verde.
+- Pospuesto por decisión: migraciones versionadas, JPA y driver PostgreSQL hasta conocer la versión del motor.
+- Pendiente: confirmar con `openapi.yaml` los códigos de error para 401 y 500 (no figuran en `docs/07`) y añadir entonces el manejador de errores inesperados.
+
 ## Fase 1 — Seguridad y cuentas
 - Entidades y migraciones para roles, users, guardians y coaches según MER.
 - Registro de acudiente y login.

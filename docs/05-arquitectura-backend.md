@@ -3,9 +3,11 @@
 ## Estilo aprobado
 Arquitectura monolítica por capas, con frontend Angular y backend Spring Boot como aplicaciones separadas. No adoptar microservicios ni arquitectura hexagonal sin aprobación explícita.
 
-## Paquetes propuestos
+## Paquetes
+El paquete raíz real es `com.uniquindio.teen_sport` (generado por Spring Initializr; `teen-sport` no es un nombre de paquete válido). Se conserva en lugar de `com.teensport` para respetar la estructura ya creada.
+
 ```text
-com.teensport
+com.uniquindio.teen_sport
 ├── config/          # configuración Spring, CORS, OpenAPI y beans
 ├── security/        # filtro JWT, utilidades de token, principal autenticado
 ├── controller/      # adaptadores HTTP y endpoints REST
@@ -37,6 +39,8 @@ La base de datos relacional es el almacén principal. Utilizar Spring Data JPA/O
 
 ## Contrato API
 La especificación OpenAPI define rutas bajo `/api/v1`, modelos JSON, roles, códigos de error y códigos HTTP. Mantener el archivo como contrato versionado y validar que implementación y pruebas concuerden con él.
+
+El prefijo `/api/v1` se aplica en `config/WebConfig` a todos los controladores del paquete `controller`; cada controlador declara solo la ruta del recurso (por ejemplo `@RequestMapping("/athletes")`). Actuator queda fuera del prefijo (`/actuator/health`). Por ahora existe un único ambiente general (`application.properties`), sin archivos por ambiente; springdoc (`/v3/api-docs`, Swagger UI) está habilitado. La configuración por ambientes se definirá más adelante.
 
 ## Transacciones y consistencia
 - Agrupar cambios relacionados en transacciones.

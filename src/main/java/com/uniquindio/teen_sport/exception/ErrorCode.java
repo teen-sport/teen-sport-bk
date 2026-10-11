@@ -1,0 +1,60 @@
+package com.uniquindio.teen_sport.exception;
+
+/**
+ * Códigos de error estables del contrato API ({@code docs/07-contrato-api.md}).
+ *
+ * <p>El cliente decide con el código, nunca con el texto de {@code message}. Solo se
+ * incluyen códigos que el contrato declara; no agregar códigos nuevos sin actualizar
+ * primero el OpenAPI.</p>
+ */
+public enum ErrorCode {
+    VALIDATION_ERROR,
+    NOT_FOUND,
+    ACCESS_DENIED,
+    INVALID_STATE,
+
+    INVALID_CREDENTIALS,
+    USER_INACTIVE,
+    WEAK_PASSWORD,
+    INCORRECT_CURRENT_PASSWORD,
+    EMAIL_ALREADY_REGISTERED,
+    ID_NUMBER_ALREADY_REGISTERED,
+    DATA_POLICY_NOT_ACCEPTED,
+    CANNOT_DEACTIVATE_SELF,
+
+    AGE_OUT_OF_RANGE,
+    DUPLICATE_ATHLETE,
+
+    DUPLICATE_DISCIPLINE,
+    DISCIPLINE_INACTIVE,
+    DISCIPLINE_HAS_ACTIVE_GROUPS,
+
+    INVALID_MAX_CAPACITY,
+    CAPACITY_BELOW_OCCUPIED,
+    INVALID_COACH,
+    COACH_SCHEDULE_CONFLICT,
+    COACH_HAS_ACTIVE_GROUPS,
+    GROUP_INACTIVE,
+    GROUP_OTHER_DISCIPLINE,
+    GROUP_HAS_ACTIVITY,
+    GROUP_WITHOUT_SCHEDULES,
+    SCHEDULE_CONFLICT,
+
+    PERIOD_IN_PAST,
+    NO_AVAILABLE_SPOTS,
+    DUPLICATE_ENROLLMENT,
+
+    PAYMENT_ALREADY_REGISTERED,
+    INSUFFICIENT_AMOUNT,
+    FUTURE_DATE,
+    USE_PAYMENT_REGISTRATION,
+
+    DATE_IN_PAST,
+    INVALID_DATE_RANGE,
+    INVALID_TIME_RANGE,
+    DUPLICATE_SESSION,
+    FUTURE_SESSION,
+    SESSION_CANCELLED,
+    INCOMPLETE_ATTENDANCE,
+    ATHLETE_NOT_IN_ROSTER
+}
