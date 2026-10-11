@@ -8,6 +8,7 @@ class TeenSportApplicationTests {
 
 	@Test
 	void contextLoads() {
+		// Sin cuerpo a propósito: la prueba falla si el contexto de Spring no logra arrancar.
 	}
 
 }

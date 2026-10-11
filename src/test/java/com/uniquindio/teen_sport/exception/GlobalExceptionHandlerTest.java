@@ -159,14 +159,17 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/test/body")
         void body(@Valid @RequestBody NameRequest request) {
+            // Sin cuerpo a propósito: la prueba solo necesita que Spring valide el cuerpo antes de invocarlo.
         }
 
         @GetMapping("/test/page")
         void page(@RequestParam @Max(100) int size) {
+            // Sin cuerpo a propósito: la prueba solo necesita que Spring valide el parámetro antes de invocarlo.
         }
 
         @GetMapping("/test/items/{id}")
         void item(@PathVariable long id) {
+            // Sin cuerpo a propósito: la prueba solo necesita que Spring convierta la variable de ruta antes de invocarlo.
         }
     }
 }
