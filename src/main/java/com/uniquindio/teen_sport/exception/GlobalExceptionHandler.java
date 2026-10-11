@@ -1,8 +1,6 @@
 package com.uniquindio.teen_sport.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.Clock;
-import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,8 +21,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  *
  * <p>Nunca expone trazas, SQL ni detalles internos: solo el código del contrato y un
  * mensaje en español. Los fallos no previstos responden 500 {@code INTERNAL_ERROR} y su
- * causa solo se registra en el log. Los errores 401/403 de seguridad se incorporan con
- * Spring Security en la Fase 1.</p>
+ * causa solo se registra en el log. Los errores 401/403 de autenticación y autorización
+ * del filtro de seguridad los responde {@code SecurityErrorHandler} con el mismo formato.</p>
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -36,17 +34,13 @@ public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    private final Clock clock;
+    private final ApiErrorFactory errorFactory;
 
     /**
-     * Crea el manejador con el reloj del sistema en UTC.
+     * @param errorFactory constructor del cuerpo de error
      */
-    public GlobalExceptionHandler() {
-        this(Clock.systemUTC());
-    }
-
-    GlobalExceptionHandler(Clock clock) {
-        this.clock = clock;
+    public GlobalExceptionHandler(ApiErrorFactory errorFactory) {
+        this.errorFactory = errorFactory;
     }
 
     /**
@@ -179,8 +173,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiError> build(HttpStatus status, ErrorCode code, String message,
                                            List<ApiErrorDetail> details, HttpServletRequest request) {
-        ApiError body = new ApiError(Instant.now(clock), status.value(), code, message, details,
-                request.getRequestURI());
+        ApiError body = errorFactory.create(status, code, message, details, request.getRequestURI());
         return ResponseEntity.status(status).body(body);
     }
 }

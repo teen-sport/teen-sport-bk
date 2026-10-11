@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.uniquindio.teen_sport.config.ClockConfig;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
@@ -27,8 +29,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Traducción de excepciones al formato {@code ApiError}.
+ *
+ * <p>Aísla la capa MVC: los filtros de seguridad se desactivan porque aquí solo se prueba
+ * el mapeo de errores; la seguridad tiene sus propias pruebas de integración.</p>
+ */
 @WebMvcTest(GlobalExceptionHandlerTest.FailingController.class)
-@Import(GlobalExceptionHandlerTest.FailingController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({GlobalExceptionHandlerTest.FailingController.class, ApiErrorFactory.class, ClockConfig.class})
 class GlobalExceptionHandlerTest {
 
     @Autowired
@@ -150,14 +159,17 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/test/body")
         void body(@Valid @RequestBody NameRequest request) {
+            // Sin cuerpo a propósito: la prueba solo necesita que Spring valide el cuerpo antes de invocarlo.
         }
 
         @GetMapping("/test/page")
         void page(@RequestParam @Max(100) int size) {
+            // Sin cuerpo a propósito: la prueba solo necesita que Spring valide el parámetro antes de invocarlo.
         }
 
         @GetMapping("/test/items/{id}")
         void item(@PathVariable long id) {
+            // Sin cuerpo a propósito: la prueba solo necesita que Spring convierta la variable de ruta antes de invocarlo.
         }
     }
 }
