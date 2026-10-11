@@ -4,19 +4,23 @@ El orden busca construir primero las capacidades de las que dependen los módulo
 
 ## Fase 0 — Preparación del repositorio
 - Confirmar versión de Java/Spring Boot, sistema de construcción y motor relacional.
-- Definir profiles y configuración segura por entorno.
-- Añadir migraciones versionadas, formato de error, validación, OpenAPI y pruebas base.
+- Mantener una única configuración general segura, sin separación de ambientes.
+- Añadir formato de error, validación, OpenAPI y pruebas base.
 - Validar el contrato OpenAPI y decidir cuál archivo saneado será fuente de verdad.
 
-**Estado (2026-10-11): parcial.**
-- Hecho: Java 21 / Spring Boot 4.1.1 / Gradle confirmados; motor PostgreSQL (versión pendiente). Paquete `com.uniquindio.teen_sport` conservado; prefijo `/api/v1` en `config/WebConfig`; `HelloController` eliminado. Dependencias `spring-boot-starter-validation` y `springdoc-openapi-starter-webmvc-ui` 3.1.1. Un único ambiente general en `application.properties` (decisión: la configuración por ambientes se hará después y no se crean archivos `-dev`/`-prod`); mensajes de validación en español. Formato `Error`, `ErrorCode`, `BusinessException` y `GlobalExceptionHandler` (400, 404, errores de negocio). Pruebas base en verde.
-- Pospuesto por decisión: migraciones versionadas, JPA y driver PostgreSQL hasta conocer la versión del motor.
-- Pendiente: confirmar con `openapi.yaml` los códigos de error para 401 y 500 (no figuran en `docs/07`) y añadir entonces el manejador de errores inesperados.
+**Estado (2026-10-11): completada.**
+- Hecho: Java 21 / Spring Boot 4.1.1 / Gradle confirmados; motor PostgreSQL 18.6. Paquete `com.uniquindio.teen_sport` conservado; prefijo `/api/v1` en `config/WebConfig`; `HelloController` eliminado. Dependencias `spring-boot-starter-validation` y `springdoc-openapi-starter-webmvc-ui` 3.1.1. Un único ambiente general en `application.properties` (decisión: sin separación de ambientes ni archivos `-dev`/`-prod`); mensajes de validación en español. Formato `Error`, `ErrorCode`, `BusinessException` y `GlobalExceptionHandler` (400, 404, errores de negocio y 500 `INTERNAL_ERROR` para fallos no previstos; las excepciones de Spring MVC con estado propio, como 405 o 415, conservan su estado).
+- Decisión: sin migraciones versionadas por ahora; el esquema se deriva de las entidades JPA según el MER.
+- Contrato: `UNAUTHENTICATED` y `TOKEN_EXPIRED` (401) ya figuraban en `openapi.yaml`; se añadió `INTERNAL_ERROR` (500) y los tres se documentaron en `docs/07`.
+- Persistencia: `spring-boot-starter-data-jpa` y driver `org.postgresql:postgresql` (versiones gestionadas por Spring Boot 4.1.1); conexión por variables de entorno (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`), `ddl-auto=update` y `open-in-view=false`.
+- Pruebas: Testcontainers (`postgres:18.6`) para las pruebas de contexto completo; nuevas pruebas del 500 sin detalles internos y de 405/415.
+- `ErrorCode` incluye `UNAUTHENTICATED`, `TOKEN_EXPIRED` e `INTERNAL_ERROR`.
+- Pendiente para la Fase 1: las excepciones de Spring Security (401/403) deben manejarse explícitamente para que no terminen en el manejador de 500.
 
 ## Fase 1 — Seguridad y cuentas
-- Entidades y migraciones para roles, users, guardians y coaches según MER.
+- Entidades JPA para roles, users, guardians y coaches según MER.
 - Registro de acudiente y login.
-- BCrypt, JWT, contexto autenticado y manejo global de errores.
+- BCrypt, JWT (resource server de Spring Security), contexto autenticado y manejo global de errores.
 - Pruebas de roles, token expirado y propiedad de recursos.
 
 ## Fase 2 — Deportistas y catálogos
@@ -57,5 +61,5 @@ El orden busca construir primero las capacidades de las que dependen los módulo
 ## Fase 9 — Calidad y despliegue
 - Ejecutar suite completa, revisar cobertura y Javadoc.
 - Medir RNF de rendimiento y seguridad.
-- Validar CORS, secretos, perfiles y configuración productiva.
-- Preparar pipeline Jenkins y despliegue Azure cuando estén aprobados los entornos.
+- Validar CORS, secretos y configuración general.
+- Preparar pipeline Jenkins y despliegue Azure cuando estén aprobados.

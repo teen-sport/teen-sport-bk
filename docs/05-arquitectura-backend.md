@@ -35,12 +35,14 @@ Los nombres son una propuesta de paquetes; respetar la estructura ya creada si e
 - Integration: aislar llamadas a Brevo para facilitar pruebas y reemplazo del proveedor.
 
 ## Persistencia
-La base de datos relacional es el almacén principal. Utilizar Spring Data JPA/ORM para operaciones ordinarias y SQL nativo selectivo cuando exista justificación por complejidad o rendimiento. La SQL debe quedar encapsulada en repositorios.
+La base de datos relacional es el almacén principal: PostgreSQL 18.6. Por ahora no se usan migraciones versionadas; el esquema se deriva de las entidades JPA, que mapean el MER. Utilizar Spring Data JPA/ORM para operaciones ordinarias y SQL nativo selectivo cuando exista justificación por complejidad o rendimiento. La SQL debe quedar encapsulada en repositorios.
+
+Configuración de la conexión (`application.properties`): `DB_URL` (por defecto `jdbc:postgresql://localhost:5432/teen_sport`), `DB_USERNAME` (por defecto `teen_sport`) y `DB_PASSWORD` (obligatoria, sin valor por defecto). `spring.jpa.hibernate.ddl-auto=update` crea y amplía tablas a partir de las entidades, sin eliminar columnas ni datos; `spring.jpa.open-in-view=false` obliga a resolver las cargas dentro de los servicios.
 
 ## Contrato API
 La especificación OpenAPI define rutas bajo `/api/v1`, modelos JSON, roles, códigos de error y códigos HTTP. Mantener el archivo como contrato versionado y validar que implementación y pruebas concuerden con él.
 
-El prefijo `/api/v1` se aplica en `config/WebConfig` a todos los controladores del paquete `controller`; cada controlador declara solo la ruta del recurso (por ejemplo `@RequestMapping("/athletes")`). Actuator queda fuera del prefijo (`/actuator/health`). Por ahora existe un único ambiente general (`application.properties`), sin archivos por ambiente; springdoc (`/v3/api-docs`, Swagger UI) está habilitado. La configuración por ambientes se definirá más adelante.
+El prefijo `/api/v1` se aplica en `config/WebConfig` a todos los controladores del paquete `controller`; cada controlador declara solo la ruta del recurso (por ejemplo `@RequestMapping("/athletes")`). Actuator queda fuera del prefijo (`/actuator/health`). Existe un único ambiente general (`application.properties`), sin archivos ni perfiles por ambiente; springdoc (`/v3/api-docs`, Swagger UI) está habilitado.
 
 ## Transacciones y consistencia
 - Agrupar cambios relacionados en transacciones.
@@ -49,10 +51,10 @@ El prefijo `/api/v1` se aplica en `config/WebConfig` a todos los controladores d
 - El envío de correos que dependa de un commit debe ejecutarse después del commit; manejar fallos sin revertir indebidamente la operación ya confirmada.
 
 ## Observabilidad y configuración
-- Separar configuración por entorno y mantener secretos fuera del repositorio.
+- Mantener una única configuración general (`application.properties`) y los secretos fuera del repositorio, inyectados mediante variables de entorno.
 - No registrar contraseñas, JWT, hashes ni datos personales innecesarios.
 - Registrar errores con identificadores de correlación y contexto técnico mínimo.
-- No exponer herramientas de depuración o documentación interactiva públicamente sin decisión por entorno.
+- No exponer herramientas de depuración; la exposición de la documentación interactiva (Swagger UI) se revisará antes del despliegue.
 
 ## Despliegue previsto
-El documento de arquitectura propone Jenkins y Azure. Confirmar servicios, variables y ambientes reales antes de crear pipeline o infraestructura. No almacenar secretos de Azure/Brevo en `application.yml` versionado.
+El documento de arquitectura propone Jenkins y Azure. Confirmar servicios y variables antes de crear pipeline o infraestructura. No almacenar secretos de Azure/Brevo en `application.properties` versionado.

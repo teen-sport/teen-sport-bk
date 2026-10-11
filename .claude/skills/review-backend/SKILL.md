@@ -94,7 +94,7 @@ Verifica:
 - Riesgos de asignación masiva de propiedades.
 - Exposición de datos personales de menores.
 - Validación de los datos usados para construir consultas.
-- Manejo de CORS según los orígenes aprobados para el entorno.
+- Manejo de CORS según los orígenes aprobados.
 
 No consideres suficiente que un endpoint tenga `authenticated()` o que el usuario posea un rol general si también debe comprobarse que el recurso pertenece a ese usuario o está dentro de su ámbito de acceso.
 
@@ -110,7 +110,6 @@ Verifica:
 - Carga de relaciones y riesgo de ciclos de serialización.
 - Operaciones que puedan perder actualizaciones o producir duplicados.
 - Coherencia entre el estado persistido y el resultado comunicado al cliente.
-- Compatibilidad con las migraciones existentes.
 
 No declares que una consulta es lenta sin evidencia o un análisis que respalde esa conclusión.
 

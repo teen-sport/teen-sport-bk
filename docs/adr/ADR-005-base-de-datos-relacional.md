@@ -6,4 +6,4 @@
 - **Alternativas:** NoSQL como almacén principal; archivos.
 - **Justificación:** Claves foráneas, restricciones, transacciones y consultas relacionales respaldan consistencia y reportes.
 - **Consecuencias:** Diseñar índices y transacciones. Confirmar el motor elegido en configuración/decisión de despliegue; el OpenAPI menciona MySQL 8 al explicar `training_groups`.
-- **Actualización (2026-10-11):** el motor elegido es PostgreSQL; la versión está pendiente de confirmación del equipo. Las referencias a MySQL 8 en el contrato (`training_groups`) se conservan como nombre físico de la tabla. Las migraciones versionadas quedan pospuestas hasta que se necesite la base de datos.
+- **Actualización (2026-10-11):** el motor elegido es PostgreSQL 18.6. Las referencias a MySQL 8 en el contrato (`training_groups`) se conservan como nombre físico de la tabla. Por ahora no se usan migraciones versionadas; el esquema se deriva de las entidades JPA según el MER.

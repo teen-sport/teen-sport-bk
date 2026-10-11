@@ -384,7 +384,7 @@ paths:
         - name: guardianId
           in: query
           description: Admin only.
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
       responses:
         '200':
           description: A page of athletes.
@@ -447,7 +447,9 @@ paths:
       summary: Groups with free spots for a period
       description: |
         **Roles:** ADMIN, GUARDIAN. Returns only `ACTIVE` groups of `ACTIVE` disciplines, with `occupiedSpots` and `availableSpots` for the period.
-        Occupied spots count enrollments in `PENDING_REVIEW` and `ACTIVE`. This is the only endpoint guardians use to browse groups.
+        Occupied spots count enrollments in `PENDING_REVIEW` and `ACTIVE` whose start `period` is on or before the requested period
+        (an enrollment stays in force month to month from its start period until it is rejected or cancelled).
+        This is the only endpoint guardians use to browse groups.
       x-endpoint-id: E5
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: [VALIDATION_ERROR, PERIOD_IN_PAST]
@@ -455,7 +457,7 @@ paths:
         - { $ref: '#/components/parameters/PeriodRequired' }
         - name: disciplineId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
       responses:
         '200':
           description: Availability per group.
@@ -475,7 +477,10 @@ paths:
       summary: Request an enrollment
       description: |
         **Roles:** GUARDIAN (own athlete), ADMIN. Creates the enrollment in `PENDING_REVIEW` with `paymentStatus` `OVERDUE`
-        and reserves a spot, checked under a pessimistic lock on the group row.
+        and reserves a spot, checked under a pessimistic lock on the group row. `period` is the start month: the enrollment stays
+        in force month to month until it is rejected or cancelled. Returns 409 `DUPLICATE_ENROLLMENT` when the athlete already has an
+        in-force enrollment (`PENDING_REVIEW` or `ACTIVE`) in the same discipline, whatever its group or start period; to move to
+        another group use E15. Enrollments in other disciplines are allowed.
         When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409.
       x-endpoint-id: E6
       x-roles: [GUARDIAN, ADMIN]
@@ -520,17 +525,17 @@ paths:
         - { $ref: '#/components/parameters/Period' }
         - name: disciplineId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: groupId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: athleteId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: guardianId
           in: query
           description: Admin only.
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
       responses:
         '200':
           description: A page of enrollments.
@@ -569,7 +574,7 @@ paths:
       description: |
         **Roles:** ADMIN. Moves to `ACTIVE`, sets `confirmedAt`, and sends `ENROLLMENT_CONFIRMED` after commit (not awaited, RNF-04).
         `groupId` (optional) assigns another group of the same discipline; `payment` (optional, same body as E17) registers the payment
-        in the same call and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
+        in the same call, under the same rules as E17, and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
       x-endpoint-id: E12
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, INSUFFICIENT_AMOUNT, FUTURE_DATE]
@@ -656,7 +661,7 @@ paths:
       operationId: changeEnrollmentGroup
       summary: Move an enrollment to another group of the same discipline
       description: |
-        **Roles:** ADMIN. Same period and same discipline. The spot in the old group is released and one in the new group is reserved.
+        **Roles:** ADMIN. Same discipline; the enrollment keeps its start period. The spot in the old group is released and one in the new group is reserved.
         Past sessions and attendance are not touched.
       x-endpoint-id: E15
       x-roles: [ADMIN]
@@ -688,7 +693,8 @@ paths:
       summary: Guardian reports that they paid in person
       description: |
         **Roles:** GUARDIAN (own). Only sets `paymentReported=true` so the admin can find it. It does NOT change `paymentStatus`:
-        only the admin can, through E17 or E12.
+        only the admin can, through E17 or E12. Returns 409 `PAYMENT_ALREADY_REGISTERED` when the enrollment already has a payment
+        whose `paymentDate` falls in the month of the reported `paymentDate` (or the current month when it is omitted).
       x-endpoint-id: E16
       x-roles: [GUARDIAN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED]
@@ -717,8 +723,10 @@ paths:
       summary: Register an in-person payment
       description: |
         **Roles:** ADMIN. Creates the payment, sets `paymentStatus` to `UP_TO_DATE` and clears `paymentReported`.
-        `amountPaid` must be at least the discipline `monthlyFee`. One payment per enrollment, and only while the enrollment is
-        `PENDING_REVIEW` or `ACTIVE`.
+        `amountPaid` must be at least the discipline `monthlyFee`. Only while the enrollment is `PENDING_REVIEW` or `ACTIVE`.
+        An enrollment can have several payments, at most one per calendar month: the month a payment covers is the month of its
+        `paymentDate`, and the payment with the most recent `paymentDate` is the latest one. A second payment whose `paymentDate`
+        falls in a month that already has a payment returns 409 `PAYMENT_ALREADY_REGISTERED`.
       x-endpoint-id: E17
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
@@ -782,10 +790,10 @@ paths:
         - { $ref: '#/components/parameters/Size' }
         - name: enrollmentId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: athleteId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: from
           in: query
           schema: { type: string, format: date }
@@ -928,11 +936,11 @@ paths:
       parameters:
         - name: disciplineId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: coachId
           in: query
           description: Admin only.
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: status
           in: query
           schema: { $ref: '#/components/schemas/EntityStatus' }
@@ -997,7 +1005,7 @@ paths:
       tags: [Groups]
       operationId: updateGroup
       summary: Update group name and capacity
-      description: '**Roles:** ADMIN. `maxCapacity` is 1 to 15 and cannot go below the occupied spots of any current or future period (409).'
+      description: '**Roles:** ADMIN. `maxCapacity` is 1 to 15 and cannot go below the occupied spots of the current or any future month, i.e. the in-force `PENDING_REVIEW` and `ACTIVE` enrollments of the group (409).'
       x-endpoint-id: H9
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_MAX_CAPACITY, CAPACITY_BELOW_OCCUPIED]
@@ -1194,13 +1202,13 @@ paths:
           schema: { type: string, format: date }
         - name: groupId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: disciplineId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: athleteId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: status
           in: query
           schema: { $ref: '#/components/schemas/SessionStatus' }
@@ -1325,8 +1333,8 @@ paths:
       operationId: getSessionAttendance
       summary: Session roster with saved marks
       description: |
-        **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose `period`
-        equals the month of the session, ordered by last name. `status` is null for athletes not yet marked.
+        **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose start `period`
+        is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked.
       x-endpoint-id: A7
       x-roles: [COACH, ADMIN]
       x-error-codes: [NOT_FOUND]
@@ -1380,10 +1388,10 @@ paths:
         - { $ref: '#/components/parameters/Size' }
         - name: athleteId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: groupId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: from
           in: query
           schema: { type: string, format: date }
@@ -1445,10 +1453,10 @@ paths:
           schema: { type: string, format: date }
         - name: groupId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: disciplineId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
       responses:
         '200':
           description: Report.
@@ -1503,7 +1511,7 @@ paths:
           schema: { type: integer, minimum: 1, default: 3 }
         - name: groupId
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: integer, format: int32 }
         - name: dateFrom
           in: query
           schema: { type: string, format: date }
@@ -1530,7 +1538,7 @@ components:
       name: id
       in: path
       required: true
-      schema: { type: integer, format: int64 }
+      schema: { type: integer, format: int32 }
     Page:
       name: page
       in: query
@@ -1626,6 +1634,18 @@ components:
             message: El deportista debe tener entre 12 y 17 años.
             details: []
             path: /api/v1/athletes
+    InternalError:
+      description: Unexpected server failure (`INTERNAL_ERROR`). Applies to any operation; never exposes stack traces, SQL or internal details.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 500
+            code: INTERNAL_ERROR
+            message: Ocurrió un error inesperado. Intenta de nuevo más tarde.
+            details: []
+            path: /api/v1/enrollments
   schemas:
     # ------------------------------------------------------------ primitives
     Period:
@@ -1704,6 +1724,7 @@ components:
         - INCORRECT_CURRENT_PASSWORD
         - CANNOT_DEACTIVATE_SELF
         - COACH_HAS_ACTIVE_GROUPS
+        - INTERNAL_ERROR
     Error:
       type: object
       required: [timestamp, status, code, message, details, path]
@@ -1738,19 +1759,19 @@ components:
       type: object
       required: [id, name]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         name: { type: string }
     PersonRef:
       type: object
       required: [id, fullName]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         fullName: { type: string }
     AthleteRef:
       type: object
       required: [id, firstNames, lastNames]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         firstNames: { type: string }
         lastNames: { type: string }
     StatusRequest:
@@ -1785,12 +1806,12 @@ components:
           type: object
           required: [id, firstNames, lastNames, role]
           properties:
-            id: { type: integer, format: int64 }
+            id: { type: integer, format: int32 }
             firstNames: { type: string }
             lastNames: { type: string }
             role: { $ref: '#/components/schemas/Role' }
-            guardianId: { type: integer, format: int64, nullable: true }
-            coachId: { type: integer, format: int64, nullable: true }
+            guardianId: { type: integer, format: int32, nullable: true }
+            coachId: { type: integer, format: int32, nullable: true }
     RegisterGuardianRequest:
       type: object
       required: [firstNames, lastNames, idType, idNumber, email, phone, password, acceptedDataPolicy]
@@ -1851,7 +1872,7 @@ components:
       type: object
       required: [id, firstNames, lastNames, idType, idNumber, email, phone, role, status]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         idType: { type: string }
         idNumber: { type: string }
         firstNames: { type: string }
@@ -1866,14 +1887,14 @@ components:
           nullable: true
           description: Only for role GUARDIAN.
           properties:
-            id: { type: integer, format: int64 }
+            id: { type: integer, format: int32 }
             homeAddress: { type: string, nullable: true }
         coach:
           type: object
           nullable: true
           description: Only for role COACH.
           properties:
-            id: { type: integer, format: int64 }
+            id: { type: integer, format: int32 }
             specialty: { type: string, nullable: true }
             yearsOfExperience: { type: integer, nullable: true }
     UserPage:
@@ -1889,8 +1910,8 @@ components:
       type: object
       required: [id, userId, fullName, status]
       properties:
-        id: { type: integer, format: int64, description: Coach id. Used by H8 and H11. }
-        userId: { type: integer, format: int64 }
+        id: { type: integer, format: int32, description: Coach id. Used by H8 and H11. }
+        userId: { type: integer, format: int32 }
         fullName: { type: string }
         specialty: { type: string, nullable: true }
         yearsOfExperience: { type: integer, nullable: true }
@@ -1899,8 +1920,8 @@ components:
       type: object
       required: [id, userId, fullName, email, phone]
       properties:
-        id: { type: integer, format: int64, description: Guardian id. Used by E1. }
-        userId: { type: integer, format: int64 }
+        id: { type: integer, format: int32, description: Guardian id. Used by E1. }
+        userId: { type: integer, format: int32 }
         fullName: { type: string }
         email: { type: string, format: email }
         phone: { type: string }
@@ -1918,7 +1939,7 @@ components:
       type: object
       required: [firstNames, lastNames, idType, idNumber, birthDate]
       properties:
-        guardianId: { type: integer, format: int64, description: Admin only; ignored for guardians. }
+        guardianId: { type: integer, format: int32, description: Admin only; ignored for guardians. }
         firstNames: { type: string }
         lastNames: { type: string }
         idType: { type: string, example: TI }
@@ -1939,8 +1960,8 @@ components:
       type: object
       required: [id, guardianId, firstNames, lastNames, idType, idNumber, birthDate, age, hasActiveEnrollment]
       properties:
-        id: { type: integer, format: int64 }
-        guardianId: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
+        guardianId: { type: integer, format: int32 }
         firstNames: { type: string }
         lastNames: { type: string }
         idType: { type: string }
@@ -1963,15 +1984,15 @@ components:
       type: object
       required: [groupId, groupName, discipline, coach, schedules, maxCapacity, occupiedSpots, availableSpots]
       properties:
-        groupId: { type: integer, format: int64 }
+        groupId: { type: integer, format: int32 }
         groupName: { type: string }
         discipline:
           type: object
           required: [id, name, monthlyFee]
           properties:
-            id: { type: integer, format: int64 }
+            id: { type: integer, format: int32 }
             name: { type: string }
-            monthlyFee: { type: number, format: double }
+            monthlyFee: { type: number, multipleOf: 0.01, description: 'COP, DECIMAL(10,2).' }
         coach: { $ref: '#/components/schemas/PersonRef' }
         schedules:
           type: array
@@ -1983,14 +2004,14 @@ components:
       type: object
       required: [athleteId, groupId, period]
       properties:
-        athleteId: { type: integer, format: int64 }
-        groupId: { type: integer, format: int64 }
+        athleteId: { type: integer, format: int32 }
+        groupId: { type: integer, format: int32 }
         period: { $ref: '#/components/schemas/Period' }
     EnrollmentSummary:
       type: object
       required: [id, athlete, group, discipline, period, status, paymentStatus, paymentReported, createdAt]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         athlete: { $ref: '#/components/schemas/AthleteRef' }
         group: { $ref: '#/components/schemas/IdName' }
         discipline: { $ref: '#/components/schemas/IdName' }
@@ -2022,13 +2043,13 @@ components:
     ConfirmEnrollmentRequest:
       type: object
       properties:
-        groupId: { type: integer, format: int64, description: Optional. Another group of the same discipline. }
+        groupId: { type: integer, format: int32, description: Optional. Another group of the same discipline. }
         payment: { $ref: '#/components/schemas/RegisterPaymentRequest' }
     ChangeGroupRequest:
       type: object
       required: [groupId]
       properties:
-        groupId: { type: integer, format: int64 }
+        groupId: { type: integer, format: int32 }
     PaymentReportRequest:
       type: object
       properties:
@@ -2038,7 +2059,7 @@ components:
       type: object
       required: [amountPaid, paymentDate]
       properties:
-        amountPaid: { type: number, format: double, minimum: 0, exclusiveMinimum: true, example: 120000 }
+        amountPaid: { type: number, multipleOf: 0.01, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, description: 'COP, DECIMAL(10,2).', example: 120000 }
         paymentDate: { type: string, format: date, description: Cannot be in the future. }
         receiptReference: { type: string, maxLength: 50 }
         notes: { type: string, maxLength: 255 }
@@ -2053,12 +2074,14 @@ components:
       type: object
       required: [id, enrollmentId, amountPaid, paymentDate]
       properties:
-        id: { type: integer, format: int64 }
-        enrollmentId: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
+        enrollmentId: { type: integer, format: int32 }
         athlete: { $ref: '#/components/schemas/AthleteRef' }
         discipline: { $ref: '#/components/schemas/IdName' }
-        period: { $ref: '#/components/schemas/Period' }
-        amountPaid: { type: number, format: double }
+        period:
+          allOf: [{ $ref: '#/components/schemas/Period' }]
+          description: Month covered by the payment, i.e. the `YYYY-MM` of `paymentDate`.
+        amountPaid: { type: number, multipleOf: 0.01, description: 'COP, DECIMAL(10,2).' }
         paymentDate: { type: string, format: date }
         receiptReference: { type: string, nullable: true }
         notes: { type: string, nullable: true }
@@ -2080,21 +2103,21 @@ components:
       properties:
         name: { type: string, maxLength: 100, example: Fútbol }
         description: { type: string, maxLength: 500 }
-        monthlyFee: { type: number, format: double, minimum: 0, exclusiveMinimum: true, example: 120000 }
+        monthlyFee: { type: number, multipleOf: 0.01, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, description: 'COP, DECIMAL(10,2).', example: 120000 }
     Discipline:
       type: object
       required: [id, name, monthlyFee, status]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         name: { type: string }
         description: { type: string, nullable: true }
-        monthlyFee: { type: number, format: double }
+        monthlyFee: { type: number, multipleOf: 0.01, description: 'COP, DECIMAL(10,2).' }
         status: { $ref: '#/components/schemas/EntityStatus' }
     Schedule:
       type: object
       required: [id, dayOfWeek, startTime, endTime]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
         startTime: { $ref: '#/components/schemas/Time' }
         endTime: { $ref: '#/components/schemas/Time' }
@@ -2109,7 +2132,7 @@ components:
       type: object
       required: [id, name, discipline, coach, maxCapacity, status, schedules]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         name: { type: string }
         discipline: { $ref: '#/components/schemas/IdName' }
         coach: { $ref: '#/components/schemas/PersonRef' }
@@ -2122,8 +2145,8 @@ components:
       type: object
       required: [disciplineId, coachId, name, maxCapacity]
       properties:
-        disciplineId: { type: integer, format: int64 }
-        coachId: { type: integer, format: int64 }
+        disciplineId: { type: integer, format: int32 }
+        coachId: { type: integer, format: int32 }
         name: { type: string, maxLength: 100 }
         maxCapacity: { type: integer, minimum: 1, maximum: 15 }
     UpdateGroupRequest:
@@ -2136,13 +2159,13 @@ components:
       type: object
       required: [coachId]
       properties:
-        coachId: { type: integer, format: int64 }
+        coachId: { type: integer, format: int32 }
     # -------------------------------------------------------------- sessions
     CreateSessionRequest:
       type: object
       required: [groupId, date, startTime, endTime]
       properties:
-        groupId: { type: integer, format: int64 }
+        groupId: { type: integer, format: int32 }
         date: { type: string, format: date }
         startTime: { $ref: '#/components/schemas/Time' }
         endTime: { $ref: '#/components/schemas/Time' }
@@ -2159,7 +2182,7 @@ components:
       type: object
       required: [groupId, dateFrom, dateTo]
       properties:
-        groupId: { type: integer, format: int64 }
+        groupId: { type: integer, format: int32 }
         dateFrom: { type: string, format: date }
         dateTo: { type: string, format: date }
         notify: { type: boolean, default: false }
@@ -2167,7 +2190,7 @@ components:
       type: object
       required: [id, group, discipline, coach, date, startTime, endTime, status, attendanceRecorded]
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
         group: { $ref: '#/components/schemas/IdName' }
         discipline: { $ref: '#/components/schemas/IdName' }
         coach: { $ref: '#/components/schemas/PersonRef' }
@@ -2184,7 +2207,7 @@ components:
             type: object
             required: [id, firstNames]
             properties:
-              id: { type: integer, format: int64 }
+              id: { type: integer, format: int32 }
               firstNames: { type: string }
     GenerateSessionsResponse:
       type: object
@@ -2200,7 +2223,7 @@ components:
       type: object
       required: [athleteId, firstNames, lastNames, status]
       properties:
-        athleteId: { type: integer, format: int64 }
+        athleteId: { type: integer, format: int32 }
         firstNames: { type: string }
         lastNames: { type: string }
         status:
@@ -2211,7 +2234,7 @@ components:
       type: object
       required: [sessionId, group, date, status, attendanceRecorded, records]
       properties:
-        sessionId: { type: integer, format: int64 }
+        sessionId: { type: integer, format: int32 }
         group: { $ref: '#/components/schemas/IdName' }
         date: { type: string, format: date }
         status: { $ref: '#/components/schemas/SessionStatus' }
@@ -2231,14 +2254,14 @@ components:
             type: object
             required: [athleteId, status]
             properties:
-              athleteId: { type: integer, format: int64 }
+              athleteId: { type: integer, format: int32 }
               status: { $ref: '#/components/schemas/AttendanceStatus' }
     AttendanceRecord:
       type: object
       required: [id, sessionId, date, group, discipline, athlete, status, recordedAt]
       properties:
-        id: { type: integer, format: int64 }
-        sessionId: { type: integer, format: int64 }
+        id: { type: integer, format: int32 }
+        sessionId: { type: integer, format: int32 }
         date: { type: string, format: date }
         group: { $ref: '#/components/schemas/IdName' }
         discipline: { $ref: '#/components/schemas/IdName' }
@@ -2275,7 +2298,7 @@ components:
             type: object
             required: [disciplineId, name, requests, active]
             properties:
-              disciplineId: { type: integer, format: int64 }
+              disciplineId: { type: integer, format: int32 }
               name: { type: string }
               requests: { type: integer }
               active: { type: integer }
@@ -2298,7 +2321,7 @@ components:
             type: object
             required: [groupId, groupName, discipline, scheduledSessions, completedSessions, attendanceRate]
             properties:
-              groupId: { type: integer, format: int64 }
+              groupId: { type: integer, format: int32 }
               groupName: { type: string }
               discipline: { type: string }
               scheduledSessions: { type: integer }
@@ -2308,7 +2331,7 @@ components:
       type: object
       required: [athleteId, recordedSessions, present, absent, attendanceRate, byGroup]
       properties:
-        athleteId: { type: integer, format: int64 }
+        athleteId: { type: integer, format: int32 }
         recordedSessions: { type: integer }
         present: { type: integer }
         absent: { type: integer }
@@ -2319,7 +2342,7 @@ components:
             type: object
             required: [groupId, groupName, present, absent, attendanceRate]
             properties:
-              groupId: { type: integer, format: int64 }
+              groupId: { type: integer, format: int32 }
               groupName: { type: string }
               present: { type: integer }
               absent: { type: integer }

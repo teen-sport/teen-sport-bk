@@ -13,5 +13,5 @@
 - Utilizar transacciones en operaciones que deben completarse de forma atómica.
 - Validar cupos y restricciones de matrícula frente a operaciones concurrentes.
 - Evitar actualizaciones destructivas de datos sin autorización explícita.
-- Mantener los scripts de esquema y migración bajo control de versiones según la herramienta elegida.
+- Por ahora no se usan migraciones versionadas: el esquema se deriva de las entidades JPA, que deben corresponder al MER.
 - Probar las restricciones de integridad y los escenarios de concurrencia relevantes.

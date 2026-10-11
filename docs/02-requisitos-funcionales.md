@@ -17,18 +17,20 @@
 
 ## Disponibilidad y matrículas
 - `E5`: consultar grupos activos de disciplinas activas y disponibilidad para un periodo.
-- Los cupos ocupados cuentan matrículas `PENDING_REVIEW` y `ACTIVE`.
+- El `period` de una matrícula es su mes de inicio; la matrícula sigue vigente mes a mes hasta ser rechazada o cancelada.
+- Los cupos ocupados de un mes cuentan las matrículas `PENDING_REVIEW` y `ACTIVE` con mes de inicio igual o anterior.
 - `E6`: solicitar matrícula; estado inicial `PENDING_REVIEW`, pago inicial `OVERDUE` y reserva de cupo bajo bloqueo pesimista del grupo.
+- Un deportista no puede tener dos matrículas vigentes (`PENDING_REVIEW` o `ACTIVE`) en la misma disciplina, sin importar grupo ni mes de inicio (`DUPLICATE_ENROLLMENT`); sí en disciplinas distintas.
 - Si no hay cupos, no se crea matrícula, se intenta notificar por correo y se devuelve conflicto.
 - `E7–E8`: listar matrículas y consultar detalle con horarios, aplicando permisos de propiedad.
 - `E12`: administrador confirma matrícula, puede reasignar grupo de la misma disciplina y registrar un pago en la misma operación. Si no registra pago, la matrícula queda `OVERDUE`.
 - `E13`: administrador rechaza matrícula pendiente y libera cupo.
 - `E14`: cancelar matrícula conforme al rol y estado; liberar cupo cuando corresponda.
-- `E15`: cambiar de grupo dentro de la misma disciplina y periodo; liberar el cupo anterior y reservar el nuevo sin modificar sesiones pasadas ni asistencia.
+- `E15`: cambiar de grupo dentro de la misma disciplina, conservando el mes de inicio; liberar el cupo anterior y reservar el nuevo sin modificar sesiones pasadas ni asistencia.
 
 ## Pagos presenciales
 - `E16`: el acudiente reporta que pagó presencialmente; solo activa `paymentReported`, no cambia el estado financiero.
-- `E17`: el administrador registra el pago presencial; el monto debe ser al menos la mensualidad vigente, se registra un pago por matrícula y se actualiza a `UP_TO_DATE`.
+- `E17`: el administrador registra el pago presencial; el monto debe ser al menos la mensualidad vigente y se actualiza a `UP_TO_DATE`. Una matrícula puede tener varios pagos, como máximo uno por mes calendario de `paymentDate`; el pago con `paymentDate` más reciente es el último.
 - `E18`: el administrador puede marcar la matrícula `OVERDUE`; `UP_TO_DATE` solo se alcanza registrando un pago. No hay proceso automático de actualización.
 - `E19`: consultar historial de pagos con filtrado de pertenencia para acudientes.
 - No implementar pasarela de pagos en línea.
@@ -37,7 +39,7 @@
 - `H1–H5`: listar, consultar, crear, actualizar y activar/desactivar disciplinas. La mensualidad debe ser positiva. No se puede desactivar una disciplina con grupos activos.
 - `H6–H11`: listar, consultar, crear, actualizar, activar/desactivar grupos y asignar entrenador.
 - La capacidad de grupo está entre 1 y 15. El entrenador y la disciplina deben estar activos al crear el grupo. El grupo se almacena como `training_groups` por ser `groups` palabra reservada en MySQL 8.
-- No reducir la capacidad por debajo de los cupos ocupados de periodos actuales o futuros.
+- No reducir la capacidad por debajo de las matrículas vigentes (`PENDING_REVIEW` y `ACTIVE`) del grupo.
 - `H12–H14`: crear, actualizar y eliminar horarios del grupo conforme a las reglas del contrato.
 
 ## Sesiones y asistencia

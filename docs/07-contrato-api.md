@@ -13,9 +13,14 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 - Autenticación por `Authorization: Bearer <JWT>`, excepto `POST /auth/login` y `POST /users/register`.
 - Roles: `ADMIN`, `COACH`, `GUARDIAN`.
 - Propiedad: los acudientes acceden a sus deportistas; entrenadores a sus grupos asignados. Las listas deben aplicar filtrado por pertenencia en backend.
-- Fechas: `YYYY-MM-DD`; horas `HH:mm`; periodos `YYYY-MM`; timestamps ISO-8601 UTC; valores monetarios numéricos en COP.
+- Fechas: `YYYY-MM-DD`; horas `HH:mm`; periodos `YYYY-MM`; timestamps ISO-8601 UTC; valores monetarios numéricos en COP con hasta dos decimales (`DECIMAL(10,2)` en el MER); identificadores enteros de 32 bits (`int32`, `INT` en el MER).
 - `200`: lectura/actualización; `201`: creación y cabecera `Location`; `204`: sin cuerpo; `400`: solicitud/campos inválidos; `401`: no autenticado; `403`: no autorizado; `404`: no encontrado; `409`: duplicado/conflicto de estado; `422`: regla de negocio incumplida.
+- Matrícula y periodo: el `period` de una matrícula es su mes de inicio; la matrícula sigue vigente mes a mes hasta ser rechazada o cancelada. Los cupos ocupados de un mes son las matrículas `PENDING_REVIEW` y `ACTIVE` del grupo con mes de inicio igual o anterior (E5, E6, H9, A7).
+- Matrícula duplicada: un deportista no puede tener dos matrículas vigentes (`PENDING_REVIEW` o `ACTIVE`) en la misma disciplina, sin importar el grupo ni el mes de inicio; E6 devuelve `409 DUPLICATE_ENROLLMENT`. Sí puede tener matrículas vigentes en disciplinas distintas. Una matrícula rechazada o cancelada no bloquea una nueva. El cambio de grupo se hace con E15.
+- Pagos: una matrícula puede tener varios pagos, como máximo uno por mes calendario. El mes que cubre un pago es el mes de su `paymentDate` (campo `period` de `Payment`) y el pago con `paymentDate` más reciente es el último. Un segundo pago en un mes que ya tiene pago devuelve `409 PAYMENT_ALREADY_REGISTERED` (E12, E16, E17).
 - Errores: el consumidor debe evaluar `code`; `message` es un mensaje de presentación en español.
+- `401` usa `UNAUTHENTICATED` (token ausente o inválido), `TOKEN_EXPIRED` (token vencido) o `INVALID_CREDENTIALS` (login fallido).
+- `500` usa `INTERNAL_ERROR` con un mensaje genérico en español; nunca expone trazas, SQL ni detalles internos. Aplica a cualquier operación (respuesta `InternalError` en `openapi.yaml`).
 
 ## Inventario de operaciones
 
@@ -110,21 +115,21 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `name` | string | Sí |
 
 ### `PersonRef`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `fullName` | string | Sí |
 
 ### `AthleteRef`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `firstNames` | string | Sí |
 | `lastNames` | string | Sí |
 
@@ -225,7 +230,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `idType` | string | Sí |
 | `idNumber` | string | Sí |
 | `firstNames` | string | Sí |
@@ -242,8 +247,8 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
-| `userId` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
+| `userId` | integer (int32) | Sí |
 | `fullName` | string | Sí |
 | `specialty` | string | No / no marcado required |
 | `yearsOfExperience` | integer | No / no marcado required |
@@ -253,8 +258,8 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
-| `userId` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
+| `userId` | integer (int32) | Sí |
 | `fullName` | string | Sí |
 | `email` | string (email) | Sí |
 | `phone` | string | Sí |
@@ -263,7 +268,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `guardianId` | integer (int64) | No / no marcado required |
+| `guardianId` | integer (int32) | No / no marcado required |
 | `firstNames` | string | Sí |
 | `lastNames` | string | Sí |
 | `idType` | string | Sí |
@@ -286,8 +291,8 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
-| `guardianId` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
+| `guardianId` | integer (int32) | Sí |
 | `firstNames` | string | Sí |
 | `lastNames` | string | Sí |
 | `idType` | string | Sí |
@@ -301,7 +306,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `groupId` | integer (int64) | Sí |
+| `groupId` | integer (int32) | Sí |
 | `groupName` | string | Sí |
 | `discipline` | object | Sí |
 | `coach` | PersonRef | Sí |
@@ -314,15 +319,15 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `athleteId` | integer (int64) | Sí |
-| `groupId` | integer (int64) | Sí |
+| `athleteId` | integer (int32) | Sí |
+| `groupId` | integer (int32) | Sí |
 | `period` | Period | Sí |
 
 ### `EnrollmentSummary`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `athlete` | AthleteRef | Sí |
 | `group` | IdName | Sí |
 | `discipline` | IdName | Sí |
@@ -336,14 +341,14 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `groupId` | integer (int64) | No / no marcado required |
+| `groupId` | integer (int32) | No / no marcado required |
 | `payment` | RegisterPaymentRequest | No / no marcado required |
 
 ### `ChangeGroupRequest`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `groupId` | integer (int64) | Sí |
+| `groupId` | integer (int32) | Sí |
 
 ### `PaymentReportRequest`
 
@@ -356,7 +361,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `amountPaid` | number (double) | Sí |
+| `amountPaid` | number (decimal 10,2; múltiplo de 0.01) | Sí |
 | `paymentDate` | string (date) | Sí |
 | `receiptReference` | string | No / no marcado required |
 | `notes` | string | No / no marcado required |
@@ -371,12 +376,12 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
-| `enrollmentId` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
+| `enrollmentId` | integer (int32) | Sí |
 | `athlete` | AthleteRef | No / no marcado required |
 | `discipline` | IdName | No / no marcado required |
-| `period` | Period | No / no marcado required |
-| `amountPaid` | number (double) | Sí |
+| `period` | Period (mes de `paymentDate`) | No / no marcado required |
+| `amountPaid` | number (decimal 10,2; múltiplo de 0.01) | Sí |
 | `paymentDate` | string (date) | Sí |
 | `receiptReference` | string | No / no marcado required |
 | `notes` | string | No / no marcado required |
@@ -389,23 +394,23 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 |---|---|---|
 | `name` | string | Sí |
 | `description` | string | No / no marcado required |
-| `monthlyFee` | number (double) | Sí |
+| `monthlyFee` | number (decimal 10,2; múltiplo de 0.01) | Sí |
 
 ### `Discipline`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `name` | string | Sí |
 | `description` | string | No / no marcado required |
-| `monthlyFee` | number (double) | Sí |
+| `monthlyFee` | number (decimal 10,2; múltiplo de 0.01) | Sí |
 | `status` | EntityStatus | Sí |
 
 ### `Schedule`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `dayOfWeek` | DayOfWeek | Sí |
 | `startTime` | Time | Sí |
 | `endTime` | Time | Sí |
@@ -422,7 +427,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `name` | string | Sí |
 | `discipline` | IdName | Sí |
 | `coach` | PersonRef | Sí |
@@ -434,8 +439,8 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `disciplineId` | integer (int64) | Sí |
-| `coachId` | integer (int64) | Sí |
+| `disciplineId` | integer (int32) | Sí |
+| `coachId` | integer (int32) | Sí |
 | `name` | string | Sí |
 | `maxCapacity` | integer | Sí |
 
@@ -450,13 +455,13 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `coachId` | integer (int64) | Sí |
+| `coachId` | integer (int32) | Sí |
 
 ### `CreateSessionRequest`
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `groupId` | integer (int64) | Sí |
+| `groupId` | integer (int32) | Sí |
 | `date` | string (date) | Sí |
 | `startTime` | Time | Sí |
 | `endTime` | Time | Sí |
@@ -475,7 +480,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `groupId` | integer (int64) | Sí |
+| `groupId` | integer (int32) | Sí |
 | `dateFrom` | string (date) | Sí |
 | `dateTo` | string (date) | Sí |
 | `notify` | boolean | No / no marcado required |
@@ -484,7 +489,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
 | `group` | IdName | Sí |
 | `discipline` | IdName | Sí |
 | `coach` | PersonRef | Sí |
@@ -508,7 +513,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `athleteId` | integer (int64) | Sí |
+| `athleteId` | integer (int32) | Sí |
 | `firstNames` | string | Sí |
 | `lastNames` | string | Sí |
 | `status` | object | Sí |
@@ -517,7 +522,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `sessionId` | integer (int64) | Sí |
+| `sessionId` | integer (int32) | Sí |
 | `group` | IdName | Sí |
 | `date` | string (date) | Sí |
 | `status` | SessionStatus | Sí |
@@ -534,8 +539,8 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `id` | integer (int64) | Sí |
-| `sessionId` | integer (int64) | Sí |
+| `id` | integer (int32) | Sí |
+| `sessionId` | integer (int32) | Sí |
 | `date` | string (date) | Sí |
 | `group` | IdName | Sí |
 | `discipline` | IdName | Sí |
@@ -570,7 +575,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 | Campo | Tipo / referencia | Obligatorio |
 |---|---|---|
-| `athleteId` | integer (int64) | Sí |
+| `athleteId` | integer (int32) | Sí |
 | `recordedSessions` | integer | Sí |
 | `present` | integer | Sí |
 | `absent` | integer | Sí |

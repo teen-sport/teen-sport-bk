@@ -73,7 +73,7 @@ Antes de crear o modificar archivos:
 - Inspecciona las clases relacionadas con la funcionalidad.
 - Reutiliza componentes existentes cuando corresponda.
 - Identifica convenciones de nombres, DTO, excepciones y respuestas HTTP.
-- Verifica las migraciones y entidades relacionadas con los datos.
+- Verifica las entidades JPA relacionadas con los datos y su correspondencia con el MER.
 
 No cambies versiones, dependencias, configuraciones globales ni tecnologías sin una justificación concreta.
 
@@ -194,7 +194,7 @@ TeenSport utiliza una base de datos relacional y Spring Data JPA como mecanismo 
 - Utiliza SQL nativo solamente cuando la complejidad o el rendimiento lo justifiquen.
 - Protege la integridad de las relaciones y las restricciones de datos.
 - Usa transacciones cuando una operación de negocio requiera atomicidad.
-- No asumas nombres de tablas, columnas o relaciones que no estén definidos en el MER o en las migraciones.
+- No asumas nombres de tablas, columnas o relaciones que no estén definidos en el MER.
 - No modifiques el esquema de la base de datos sin justificar el cambio.
 
 ## 6. Alcance funcional
