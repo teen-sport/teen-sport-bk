@@ -21,8 +21,8 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU28 Registro e inicio de sesión | U1, U2 | Implementada (pendiente de revisión) | `AuthServiceTest`, `GuardianRegistrationServiceTest`, `PasswordPolicyTest`, `JwtTokenServiceTest`, `SecurityErrorHandlerTest`, `SecurityPropertiesTest`, `LoginIntegrationTest`, `GuardianRegistrationIntegrationTest`, `SecurityIntegrationTest`, `UserRepositoryIntegrationTest`, `ReferenceDataInitializerIntegrationTest` | RNF-13, RNF-15, RNF-16 |
-| HU29 Mi perfil y contraseña | U3, U4, U5 | Pendiente | — | RNF-15 |
+| HU28 Registro e inicio de sesión | U1, U2 | Integrada en `development` (PR #11) | `AuthServiceTest`, `GuardianRegistrationServiceTest`, `PasswordPolicyTest`, `JwtTokenServiceTest`, `SecurityErrorHandlerTest`, `SecurityPropertiesTest`, `LoginIntegrationTest`, `GuardianRegistrationIntegrationTest`, `SecurityIntegrationTest`, `UserRepositoryIntegrationTest`, `ReferenceDataInitializerIntegrationTest` | RNF-13, RNF-15, RNF-16 |
+| HU29 Mi perfil y contraseña | U3, U4, U5 | Implementada (pendiente de revisión) | `MyAccountServiceTest`, `CurrentUserServiceTest`, `MyAccountIntegrationTest`, `SecurityIntegrationTest` | RNF-13, RNF-15 |
 | HU30 Administración de usuarios | U6–U12 | Pendiente | — | RNF-15 |
 
 ## Requisitos no funcionales

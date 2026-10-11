@@ -2,13 +2,9 @@ package com.uniquindio.teen_sport.service;
 
 import com.uniquindio.teen_sport.dto.LoginRequest;
 import com.uniquindio.teen_sport.dto.LoginResponse;
-import com.uniquindio.teen_sport.entity.Coach;
-import com.uniquindio.teen_sport.entity.Guardian;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
-import com.uniquindio.teen_sport.repository.CoachRepository;
-import com.uniquindio.teen_sport.repository.GuardianRepository;
 import com.uniquindio.teen_sport.repository.UserRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
 import com.uniquindio.teen_sport.security.JwtTokenService;
@@ -41,25 +37,21 @@ public class AuthService {
     static final String USER_INACTIVE_MESSAGE = "Tu cuenta está inactiva. Comunícate con la academia.";
 
     private final UserRepository userRepository;
-    private final GuardianRepository guardianRepository;
-    private final CoachRepository coachRepository;
+    private final RoleProfileResolver roleProfileResolver;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService tokenService;
     private final String dummyPasswordHash;
 
     /**
-     * @param userRepository     cuentas
-     * @param guardianRepository perfiles de acudiente
-     * @param coachRepository    perfiles de entrenador
-     * @param passwordEncoder    verificación BCrypt
-     * @param tokenService       emisión de JWT
+     * @param userRepository      cuentas
+     * @param roleProfileResolver perfil de acudiente o entrenador de cada cuenta
+     * @param passwordEncoder     verificación BCrypt
+     * @param tokenService        emisión de JWT
      */
-    public AuthService(UserRepository userRepository, GuardianRepository guardianRepository,
-                       CoachRepository coachRepository, PasswordEncoder passwordEncoder,
-                       JwtTokenService tokenService) {
+    public AuthService(UserRepository userRepository, RoleProfileResolver roleProfileResolver,
+                       PasswordEncoder passwordEncoder, JwtTokenService tokenService) {
         this.userRepository = userRepository;
-        this.guardianRepository = guardianRepository;
-        this.coachRepository = coachRepository;
+        this.roleProfileResolver = roleProfileResolver;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
@@ -99,17 +91,8 @@ public class AuthService {
     }
 
     private AuthenticatedUser identityOf(User user) {
-        Integer guardianId = null;
-        Integer coachId = null;
-        switch (user.getRole().getName()) {
-            case GUARDIAN -> guardianId = guardianRepository.findByUserId(user.getId())
-                    .map(Guardian::getId).orElse(null);
-            case COACH -> coachId = coachRepository.findByUserId(user.getId())
-                    .map(Coach::getId).orElse(null);
-            case ADMIN -> {
-                // El administrador no tiene perfil específico.
-            }
-        }
-        return new AuthenticatedUser(user.getId(), user.getRole().getName(), guardianId, coachId);
+        RoleProfileResolver.RoleProfiles profiles = roleProfileResolver.resolve(user);
+        return new AuthenticatedUser(user.getId(), user.getRole().getName(), profiles.guardianId(),
+                profiles.coachId());
     }
 }

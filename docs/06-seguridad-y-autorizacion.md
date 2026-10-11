@@ -59,7 +59,8 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - CSRF desactivado: la credencial viaja en la cabecera `Authorization` (no en cookies), que el navegador no adjunta automáticamente a solicitudes de otros sitios.
 - `security/JwtConfig`: solo HS256; valida firma, `exp` (sin tolerancia de reloj), `sub` presente y `role` dentro de `ADMIN`, `COACH`, `GUARDIAN`.
 - `security/SecurityErrorHandler`: `401 TOKEN_EXPIRED` para token vencido, `401 UNAUTHENTICATED` para token ausente o inválido, `403 ACCESS_DENIED` por rol; mismo formato `Error`.
-- El token no contiene datos personales: solo `sub`, `role`, `guardianId` o `coachId`, `iat` y `exp`.
+- El token no contiene datos personales: solo `sub`, `role`, `guardianId` o `coachId`, `iat` y `exp`. `sub` debe ser un id numérico.
+- `security/CurrentUserService` (HU29) es la única fuente de identidad de las operaciones propias: lee el JWT validado y nunca usa ids, roles o correos enviados por el cliente.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.

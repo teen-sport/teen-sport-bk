@@ -129,6 +129,8 @@ paths:
       description: |
         **Roles:** any authenticated user. E-mail, ID and role cannot be changed here.
         Send `homeAddress` as a guardian, or `specialty` and `yearsOfExperience` as a coach.
+        Fields of another role, and any e-mail, ID or role sent in the body, are ignored. It is a full replacement:
+        an optional field of the caller's role that is not sent is cleared.
       x-endpoint-id: U4
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: [VALIDATION_ERROR]

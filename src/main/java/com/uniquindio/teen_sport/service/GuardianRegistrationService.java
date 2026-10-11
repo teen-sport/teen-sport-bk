@@ -14,6 +14,7 @@ import com.uniquindio.teen_sport.repository.RoleRepository;
 import com.uniquindio.teen_sport.repository.UserRepository;
 import com.uniquindio.teen_sport.validation.EmailNormalizer;
 import com.uniquindio.teen_sport.validation.PasswordPolicy;
+import com.uniquindio.teen_sport.validation.TextNormalizer;
 import java.time.Clock;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -91,7 +92,7 @@ public class GuardianRegistrationService {
         user.acceptDataPolicy(now);
         userRepository.save(user);
 
-        Guardian guardian = guardianRepository.save(new Guardian(user, blankToNull(request.homeAddress())));
+        Guardian guardian = guardianRepository.save(new Guardian(user, TextNormalizer.trimToNull(request.homeAddress())));
         return profileMapper.toProfile(user, guardian, null);
     }
 
@@ -112,9 +113,5 @@ public class GuardianRegistrationService {
     private Role guardianRole() {
         return roleRepository.findByName(RoleName.GUARDIAN)
                 .orElseThrow(() -> new IllegalStateException("El rol GUARDIAN no está inicializado"));
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 }

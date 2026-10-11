@@ -154,6 +154,15 @@ public class User {
         return passwordHash;
     }
 
+    /**
+     * Reemplaza la contraseña. Recibe siempre el hash, nunca la contraseña en claro.
+     *
+     * @param passwordHash nuevo hash BCrypt
+     */
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public String getPhone() {
         return phone;
     }

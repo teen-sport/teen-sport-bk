@@ -26,9 +26,10 @@ El orden busca construir primero las capacidades de las que dependen los módulo
 Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3–U5) y HU30 (U6–U12).
 
 **Estado (2026-10-11): en curso.**
-- HU28 implementada en `feature/HU28/registration-and-login` (pendiente de revisión y PR): entidades `roles`, `users`, `guardians`, `coaches`; JWT HS256 con resource server; BCrypt; política de contraseñas; registro de acudiente (U2) y login (U1); 401/403 con formato `Error`; CORS explícito; roles y administrador inicial al arrancar. `./gradlew check`: 82 pruebas en verde.
+- HU28 integrada en `development` (PR #11): entidades `roles`, `users`, `guardians`, `coaches`; JWT HS256 con resource server; BCrypt; política de contraseñas; registro de acudiente (U2) y login (U1); 401/403 con formato `Error`; CORS explícito; roles y administrador inicial al arrancar. `./gradlew check`: 82 pruebas en verde.
 - Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.
-- Pendiente: HU29, HU30 (`COACH_HAS_ACTIVE_GROUPS` de U10 se completa en la Fase 3).
+- HU29 implementada en `feature/HU29/profile-and-password` (pendiente de revisión y PR): U3 `GET /users/me`, U4 `PUT /users/me` (reemplazo completo; campos de otro rol ignorados), U5 `PUT /users/me/password`; identidad tomada del JWT (`CurrentUserService`); `RoleProfileResolver` compartido con el login. `./gradlew check`: 109 pruebas en verde.
+- Pendiente: HU30 (`COACH_HAS_ACTIVE_GROUPS` de U10 se completa en la Fase 3).
 
 ## Fase 2 — Deportistas y catálogos
 - Perfiles de deportistas.
