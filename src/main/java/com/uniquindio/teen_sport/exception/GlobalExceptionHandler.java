@@ -4,9 +4,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,8 +22,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * Traduce las excepciones de la capa web y de los casos de uso al formato {@link ApiError}.
  *
  * <p>Nunca expone trazas, SQL ni detalles internos: solo el código del contrato y un
- * mensaje en español. Los errores 401/403 de seguridad se incorporan con Spring Security
- * en la Fase 1.</p>
+ * mensaje en español. Los fallos no previstos responden 500 {@code INTERNAL_ERROR} y su
+ * causa solo se registra en el log. Los errores 401/403 de seguridad se incorporan con
+ * Spring Security en la Fase 1.</p>
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -28,6 +32,9 @@ public class GlobalExceptionHandler {
     static final String INVALID_FIELDS_MESSAGE = "La solicitud contiene campos inválidos.";
     static final String UNREADABLE_BODY_MESSAGE = "El cuerpo de la solicitud no tiene un formato válido.";
     static final String RESOURCE_NOT_FOUND_MESSAGE = "El recurso solicitado no existe.";
+    static final String UNEXPECTED_ERROR_MESSAGE = "Ocurrió un error inesperado. Intenta de nuevo más tarde.";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private final Clock clock;
 
@@ -141,6 +148,29 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiError> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, RESOURCE_NOT_FOUND_MESSAGE, List.of(), request);
+    }
+
+    /**
+     * Fallo no previsto por ningún otro manejador.
+     *
+     * <p>Las excepciones propias de Spring MVC que ya declaran su estado HTTP
+     * ({@link ErrorResponse}, por ejemplo 405 o 415) se relanzan sin cambios para que Spring
+     * las resuelva con ese estado en lugar de convertirlas en un 500. El resto se registra
+     * con su traza en el log y responde un mensaje genérico.</p>
+     *
+     * @param ex      excepción no controlada
+     * @param request solicitud en curso
+     * @return 500 {@code INTERNAL_ERROR} sin detalles internos
+     * @throws Exception la misma excepción cuando es un {@link ErrorResponse} de Spring MVC
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest request) throws Exception {
+        if (ex instanceof ErrorResponse) {
+            throw ex;
+        }
+        LOGGER.error("Error inesperado en {} {}", request.getMethod(), request.getRequestURI(), ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_ERROR, UNEXPECTED_ERROR_MESSAGE,
+                List.of(), request);
     }
 
     private ResponseEntity<ApiError> validationError(List<ApiErrorDetail> details, HttpServletRequest request) {

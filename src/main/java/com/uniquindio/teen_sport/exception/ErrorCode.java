@@ -9,9 +9,12 @@ package com.uniquindio.teen_sport.exception;
  */
 public enum ErrorCode {
     VALIDATION_ERROR,
+    UNAUTHENTICATED,
+    TOKEN_EXPIRED,
     NOT_FOUND,
     ACCESS_DENIED,
     INVALID_STATE,
+    INTERNAL_ERROR,
 
     INVALID_CREDENTIALS,
     USER_INACTIVE,

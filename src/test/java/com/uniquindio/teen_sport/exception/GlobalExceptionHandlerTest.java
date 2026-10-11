@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -102,6 +103,34 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value(GlobalExceptionHandler.RESOURCE_NOT_FOUND_MESSAGE));
     }
 
+    @Test
+    void unexpectedFailureReturnsInternalErrorWithoutInternalDetails() throws Exception {
+        mockMvc.perform(get("/test/unexpected"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.message").value(GlobalExceptionHandler.UNEXPECTED_ERROR_MESSAGE))
+                .andExpect(jsonPath("$.details", hasSize(0)))
+                .andExpect(jsonPath("$.path").value("/test/unexpected"))
+                .andExpect(content().string(not(containsString("SELECT"))))
+                .andExpect(content().string(not(containsString("secreto"))))
+                .andExpect(content().string(not(containsString("IllegalStateException"))));
+    }
+
+    @Test
+    void unsupportedMethodKeepsItsStatusInsteadOfInternalError() throws Exception {
+        mockMvc.perform(post("/test/business"))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void unsupportedMediaTypeKeepsItsStatusInsteadOfInternalError() throws Exception {
+        mockMvc.perform(post("/test/body")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("name"))
+                .andExpect(status().isUnsupportedMediaType());
+    }
+
     record NameRequest(@NotBlank String name) {
     }
 
@@ -112,6 +141,11 @@ class GlobalExceptionHandlerTest {
         void business() {
             throw new BusinessException(ErrorCode.NO_AVAILABLE_SPOTS, HttpStatus.UNPROCESSABLE_CONTENT,
                     "No hay cupos disponibles.");
+        }
+
+        @GetMapping("/test/unexpected")
+        void unexpected() {
+            throw new IllegalStateException("SELECT * FROM users WHERE password = 'secreto'");
         }
 
         @PostMapping("/test/body")
