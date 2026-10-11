@@ -1,4 +1,4 @@
-package com.uniquindio.teen_sport.config;
+package com.uniquindio.teen_sport.support;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;

@@ -39,6 +39,18 @@ La base de datos relacional es el almacén principal: PostgreSQL 18.6. Por ahora
 
 Configuración de la conexión (`application.properties`): `DB_URL` (por defecto `jdbc:postgresql://localhost:5432/teen_sport`), `DB_USERNAME` (por defecto `teen_sport`) y `DB_PASSWORD` (obligatoria, sin valor por defecto). `spring.jpa.hibernate.ddl-auto=update` crea y amplía tablas a partir de las entidades, sin eliminar columnas ni datos; `spring.jpa.open-in-view=false` obliga a resolver las cargas dentro de los servicios.
 
+Variables de entorno de seguridad:
+
+| Variable | Obligatoria | Uso |
+|---|---|---|
+| `JWT_SECRET` | Sí | Secreto HS256 de los JWT, mínimo 32 bytes. Sin él la aplicación no arranca. |
+| `JWT_EXPIRATION_SECONDS` | No (3600) | Vigencia de los tokens. |
+| `CORS_ALLOWED_ORIGINS` | No (`http://localhost:4200`) | Orígenes del frontend separados por comas; no admite comodines. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_ID_NUMBER` | No | Crean el administrador inicial al arrancar si no existe ningún ADMIN. Deben definirse las tres o ninguna. |
+| `ADMIN_ID_TYPE`, `ADMIN_FIRST_NAMES`, `ADMIN_LAST_NAMES` | No (`CC`, `Administrador`, `TeenSport`) | Datos complementarios del administrador inicial. |
+
+Al arrancar, `config/ReferenceDataInitializer` crea los roles `ADMIN`, `COACH` y `GUARDIAN` si faltan y, si se configuró, el administrador inicial. Es idempotente.
+
 ## Contrato API
 La especificación OpenAPI define rutas bajo `/api/v1`, modelos JSON, roles, códigos de error y códigos HTTP. Mantener el archivo como contrato versionado y validar que implementación y pruebas concuerden con él.
 

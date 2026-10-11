@@ -17,6 +17,14 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 | MER torneos | Torneos | Pendiente de contrato | Definir requisitos, endpoints, permisos y pruebas antes de implementar |
 | MER notificaciones | Notificaciones | NotificationService/Brevo adapter | Fallos de envío, reintentos, registro de estado y privacidad; confirmar contrato |
 
+## Historias de usuario de la Fase 1
+
+| HU | IDs API | Estado | Pruebas automatizadas | RNF |
+|---|---|---|---|---|
+| HU28 Registro e inicio de sesión | U1, U2 | Implementada (pendiente de revisión) | `AuthServiceTest`, `GuardianRegistrationServiceTest`, `PasswordPolicyTest`, `JwtTokenServiceTest`, `SecurityErrorHandlerTest`, `SecurityPropertiesTest`, `LoginIntegrationTest`, `GuardianRegistrationIntegrationTest`, `SecurityIntegrationTest`, `UserRepositoryIntegrationTest`, `ReferenceDataInitializerIntegrationTest` | RNF-13, RNF-15, RNF-16 |
+| HU29 Mi perfil y contraseña | U3, U4, U5 | Pendiente | — | RNF-15 |
+| HU30 Administración de usuarios | U6–U12 | Pendiente | — | RNF-15 |
+
 ## Requisitos no funcionales
 Relacionar cada prueba con RNF-04 a RNF-17 cuando corresponda. Los RNF-01 a RNF-03 deben transcribirse desde el plan de calidad original para preservar sus métricas exactas.
 

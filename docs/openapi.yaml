@@ -1794,7 +1794,7 @@ components:
       required: [email, password]
       properties:
         email: { type: string, format: email }
-        password: { type: string, format: password }
+        password: { type: string, format: password, maxLength: 72 }
     LoginResponse:
       type: object
       required: [accessToken, tokenType, expiresInSeconds, user]
@@ -1823,7 +1823,7 @@ components:
         email: { type: string, format: email }
         phone: { type: string, maxLength: 20 }
         homeAddress: { type: string, maxLength: 255 }
-        password: { type: string, format: password, minLength: 8 }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, description: '8 to 72 characters (72 bytes in UTF-8, the BCrypt limit) with at least one uppercase letter, one lowercase letter, one digit and one symbol. Length violations return 400 `VALIDATION_ERROR`; a missing character class returns 422 `WEAK_PASSWORD`.' }
         acceptedDataPolicy: { type: boolean, description: Must be true. }
     CreateUserRequest:
       type: object
@@ -1838,7 +1838,7 @@ components:
         idNumber: { type: string }
         email: { type: string, format: email }
         phone: { type: string }
-        password: { type: string, format: password, minLength: 8 }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, description: '8 to 72 characters (72 bytes in UTF-8, the BCrypt limit) with at least one uppercase letter, one lowercase letter, one digit and one symbol. Length violations return 400 `VALIDATION_ERROR`; a missing character class returns 422 `WEAK_PASSWORD`.' }
         specialty: { type: string, description: Coach only. }
         yearsOfExperience: { type: integer, minimum: 0, description: Coach only. }
     UpdateUserRequest:
@@ -1867,7 +1867,7 @@ components:
       required: [currentPassword, newPassword]
       properties:
         currentPassword: { type: string, format: password }
-        newPassword: { type: string, format: password, minLength: 8 }
+        newPassword: { type: string, format: password, minLength: 8, maxLength: 72, description: '8 to 72 characters (72 bytes in UTF-8, the BCrypt limit) with at least one uppercase letter, one lowercase letter, one digit and one symbol. Length violations return 400 `VALIDATION_ERROR`; a missing character class returns 422 `WEAK_PASSWORD`.' }
     UserProfile:
       type: object
       required: [id, firstNames, lastNames, idType, idNumber, email, phone, role, status]

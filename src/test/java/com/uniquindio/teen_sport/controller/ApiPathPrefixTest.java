@@ -2,6 +2,9 @@ package com.uniquindio.teen_sport.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.uniquindio.teen_sport.config.ClockConfig;
+import com.uniquindio.teen_sport.exception.ApiErrorFactory;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
@@ -13,8 +16,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Prefijo {@code /api/v1} de los controladores.
+ *
+ * <p>Aísla la capa MVC: los filtros de seguridad se desactivan porque aquí solo se prueba
+ * el enrutamiento; la seguridad tiene sus propias pruebas de integración.</p>
+ */
 @WebMvcTest(ApiPathPrefixTest.ProbeController.class)
-@Import(ApiPathPrefixTest.ProbeController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({ApiPathPrefixTest.ProbeController.class, ApiErrorFactory.class, ClockConfig.class})
 class ApiPathPrefixTest {
 
     @Autowired

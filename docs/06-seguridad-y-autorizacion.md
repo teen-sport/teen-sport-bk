@@ -13,7 +13,8 @@ Códigos de error de autenticación (`401`): `UNAUTHENTICATED` (token ausente o 
 - Guardar solo hashes adaptativos; el contrato especifica BCrypt.
 - No devolver hash en respuestas ni escribir contraseñas en logs.
 - Verificar contraseña actual para cambio de contraseña.
-- Aplicar política de fortaleza conforme al contrato y devolver `WEAK_PASSWORD` cuando corresponda.
+- Política de fortaleza (`validation/PasswordPolicy`): de 8 a 72 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo. Longitud fuera de rango → `400 VALIDATION_ERROR`; composición insuficiente → `422 WEAK_PASSWORD`.
+- El login responde el mismo `401 INVALID_CREDENTIALS` para correo inexistente y contraseña incorrecta, y verifica contra un hash ficticio cuando el correo no existe para no revelar cuentas por tiempo de respuesta. `USER_INACTIVE` (403) solo se informa tras validar la contraseña.
 - No permitir cambiar rol, correo o documento mediante el endpoint de perfil propio.
 
 ## Autorización
@@ -52,6 +53,13 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - Entrenador accediendo a grupo no asignado.
 - Cambio de rol o campos protegidos por asignación masiva.
 - No exposición de hash, token o información sensible en respuesta/log.
+
+## Implementación (HU28)
+- `security/SecurityConfig`: sin sesión; públicos solo `POST /auth/login`, `POST /users/register`, `/actuator/health` y la documentación OpenAPI; todo lo demás exige JWT.
+- CSRF desactivado: la credencial viaja en la cabecera `Authorization` (no en cookies), que el navegador no adjunta automáticamente a solicitudes de otros sitios.
+- `security/JwtConfig`: solo HS256; valida firma, `exp` (sin tolerancia de reloj), `sub` presente y `role` dentro de `ADMIN`, `COACH`, `GUARDIAN`.
+- `security/SecurityErrorHandler`: `401 TOKEN_EXPIRED` para token vencido, `401 UNAUTHENTICATED` para token ausente o inválido, `403 ACCESS_DENIED` por rol; mismo formato `Error`.
+- El token no contiene datos personales: solo `sub`, `role`, `guardianId` o `coachId`, `iat` y `exp`.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.
