@@ -5,7 +5,7 @@
 ## Autenticación y usuarios
 - `U1`: autenticar por correo/credenciales y devolver JWT; error genérico para correo o contraseña incorrectos.
 - `U2`: registrar una cuenta de acudiente, con aceptación obligatoria de la política de tratamiento de datos; crear usuario y acudiente en una transacción.
-- `U3–U5`: consultar/actualizar perfil propio y cambiar contraseña; no permitir cambiar correo, documento o rol mediante la actualización del perfil.
+- `U3–U5`: consultar/actualizar perfil propio y cambiar contraseña; no permitir cambiar correo, documento o rol mediante la actualización del perfil. La actualización es un reemplazo completo: los campos de otro rol se ignoran y un campo opcional del rol no enviado queda vacío. El cambio de contraseña exige la contraseña actual; los tokens ya emitidos siguen vigentes hasta su vencimiento.
 - `U6–U12`: administración de usuarios, consulta individual, creación de personal, cambio de estado, listado de entrenadores y acudientes.
 - Los roles `COACH` y `ADMIN` los crea un administrador; el registro público está limitado a acudientes.
 

@@ -61,7 +61,15 @@ public class Coach {
         return specialty;
     }
 
+    public void setSpecialty(String specialty) {
+        this.specialty = specialty;
+    }
+
     public Integer getYearsExperience() {
         return yearsExperience;
+    }
+
+    public void setYearsExperience(Integer yearsExperience) {
+        this.yearsExperience = yearsExperience;
     }
 }

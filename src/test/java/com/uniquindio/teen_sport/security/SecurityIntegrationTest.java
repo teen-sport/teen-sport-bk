@@ -89,6 +89,17 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void tokenWithNonNumericSubjectIsUnauthenticated() throws Exception {
+        Instant now = Instant.now();
+        String token = encode(JwtClaimsSet.builder().subject("admin").claim(TokenClaims.ROLE, "ADMIN")
+                .issuedAt(now).expiresAt(now.plusSeconds(600)).build());
+
+        withToken(token)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
     void validTokenPassesTheSecurityFilter() throws Exception {
         withToken(tokenService.issue(new AuthenticatedUser(1, RoleName.COACH, null, 2)))
                 .andExpect(status().isNotFound());

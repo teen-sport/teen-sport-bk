@@ -45,7 +45,8 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuthService(userRepository, guardianRepository, coachRepository, passwordEncoder, tokenService);
+        service = new AuthService(userRepository, new RoleProfileResolver(guardianRepository, coachRepository),
+                passwordEncoder, tokenService);
         when(tokenService.issue(any())).thenReturn("signed-token");
         when(tokenService.expirationSeconds()).thenReturn(3600L);
     }

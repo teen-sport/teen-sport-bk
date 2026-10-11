@@ -1,5 +1,6 @@
 package com.uniquindio.teen_sport.security;
 
+import com.uniquindio.teen_sport.dto.ChangePasswordRequest;
 import com.uniquindio.teen_sport.dto.LoginRequest;
 import com.uniquindio.teen_sport.dto.RegisterGuardianRequest;
 import com.uniquindio.teen_sport.exception.ApiErrorFactory;
@@ -55,5 +56,7 @@ class SecurityErrorHandlerTest {
         assertThat(new LoginRequest("ana@teensport.test", "Segura#2026").toString()).doesNotContain("Segura#2026");
         assertThat(new RegisterGuardianRequest("Ana", "Prueba", "CC", "1", "ana@teensport.test", "300", null,
                 "Segura#2026", true).toString()).doesNotContain("Segura#2026");
+        assertThat(new ChangePasswordRequest("Actual#2026", "Nueva#2026").toString())
+                .doesNotContain("Actual#2026").doesNotContain("Nueva#2026");
     }
 }

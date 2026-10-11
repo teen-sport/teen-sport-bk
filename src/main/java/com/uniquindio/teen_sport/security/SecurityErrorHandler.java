@@ -32,7 +32,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
-    static final String UNAUTHENTICATED_MESSAGE = "Debes iniciar sesión para continuar.";
+    /** Mensaje para solicitudes sin una identidad válida. */
+    public static final String UNAUTHENTICATED_MESSAGE = "Debes iniciar sesión para continuar.";
     static final String TOKEN_EXPIRED_MESSAGE = "Tu sesión expiró. Inicia sesión de nuevo.";
     static final String ACCESS_DENIED_MESSAGE = "No tienes permiso para realizar esta acción.";
 
