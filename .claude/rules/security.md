@@ -42,7 +42,7 @@
 - No habilitar CORS indiscriminadamente.
 - No deshabilitar CSRF sin analizar el mecanismo de autenticación y el almacenamiento de credenciales.
 - No exponer detalles internos en mensajes de error.
-- Mantener Swagger protegido o limitado según el entorno y la política del proyecto.
+- Mantener Swagger protegido o limitado según la política del proyecto.
 
 ## Pruebas mínimas
 

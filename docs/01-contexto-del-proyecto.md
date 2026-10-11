@@ -16,7 +16,7 @@ Los nombres de roles del contrato API son `ADMIN`, `COACH` y `GUARDIAN`. No usar
 - Persistencia: base de datos relacional, ORM/repositorios y SQL nativo selectivo.
 - Seguridad: JWT y autorización por rol y pertenencia al recurso.
 - Correo: servicio Brevo detrás de un adaptador para desacoplar el proveedor.
-- Despliegue previsto: Jenkins y Azure, según el documento de arquitectura. Las decisiones de infraestructura deben revisarse antes de configurar entornos reales.
+- Despliegue previsto: Jenkins y Azure, según el documento de arquitectura. Las decisiones de infraestructura deben revisarse antes de desplegar. Por ahora existe una única configuración general, sin separación de ambientes.
 
 ## Alcance respaldado por el OpenAPI disponible
 El contrato incluye autenticación, usuarios, perfiles de acudientes/entrenadores, deportistas, disponibilidad, matrículas, pagos, disciplinas, grupos, horarios, sesiones, asistencia e informes.
@@ -34,8 +34,8 @@ El registro de pagos es presencial/manual: el acudiente puede reportar que pagó
 ## Fuentes de verdad y precedencia
 1. Requisitos aprobados y decisiones de arquitectura del proyecto.
 2. `openapi.yaml` para rutas, métodos, esquemas, códigos HTTP, códigos de error y roles del contrato.
-3. `MER.AC.pdf` / `04-modelo-entidad-relacion.md` para estructura de persistencia.
-4. Código y migraciones existentes para el estado implementado actualmente.
+3. `docs/MER.pdf` / `04-modelo-entidad-relacion.md` para estructura de persistencia.
+4. Código existente para el estado implementado actualmente.
 
 Si estas fuentes difieren, no inventar una conciliación: registrar la discrepancia y solicitar una decisión.
 

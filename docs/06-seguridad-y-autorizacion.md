@@ -5,6 +5,10 @@ El contrato usa JWT Bearer. Los únicos endpoints públicos declarados son `POST
 
 El esquema documentado menciona claims `sub`, `role`, `guardianId` o `coachId`, y `exp`. El servidor debe validar firma, expiración, algoritmo permitido y claims necesarios; nunca aceptar roles o identidad enviados libremente por el cliente.
 
+La validación del JWT se implementará con el soporte de resource server de Spring Security (Nimbus), sin librerías JWT de terceros (ver ADR-007).
+
+Códigos de error de autenticación (`401`): `UNAUTHENTICATED` (token ausente o inválido), `TOKEN_EXPIRED` (token vencido) e `INVALID_CREDENTIALS` (login fallido).
+
 ## Contraseñas
 - Guardar solo hashes adaptativos; el contrato especifica BCrypt.
 - No devolver hash en respuestas ni escribir contraseñas en logs.
@@ -50,4 +54,4 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - No exposición de hash, token o información sensible en respuesta/log.
 
 ## CORS y secretos
-Configurar orígenes permitidos por ambiente; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables/secretos del entorno de despliegue.
+Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.
