@@ -32,7 +32,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 public class JwtConfig {
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
-    private static final Pattern USER_ID = Pattern.compile("[0-9]{1,9}");
+    private static final Pattern USER_ID = Pattern.compile("\\d{1,9}");
 
     /**
      * @param properties configuración JWT validada

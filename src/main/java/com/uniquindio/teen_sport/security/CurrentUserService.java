@@ -5,7 +5,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
  * Identidad del usuario de la solicitud en curso, tomada del JWT ya validado por Spring Security.
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * nunca se usan ids, roles o correos enviados en el cuerpo o en la URL para decidir de quién son
  * los datos.</p>
  */
-@Component
+@Service
 public class CurrentUserService {
 
     /**
