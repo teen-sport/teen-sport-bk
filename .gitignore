@@ -40,3 +40,4 @@ out/
 .env.*
 *.pem
 *.key
+/docs/prompts/*
