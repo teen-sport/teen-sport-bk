@@ -3,6 +3,7 @@ package com.uniquindio.teen_sport.security;
 import com.uniquindio.teen_sport.exception.ApiError;
 import com.uniquindio.teen_sport.exception.ApiErrorFactory;
 import com.uniquindio.teen_sport.exception.ErrorCode;
+import com.uniquindio.teen_sport.exception.SecurityMessages;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -32,10 +33,6 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
-    /** Mensaje para solicitudes sin una identidad válida. */
-    public static final String UNAUTHENTICATED_MESSAGE = "Debes iniciar sesión para continuar.";
-    static final String TOKEN_EXPIRED_MESSAGE = "Tu sesión expiró. Inicia sesión de nuevo.";
-    static final String ACCESS_DENIED_MESSAGE = "No tienes permiso para realizar esta acción.";
 
     private final ApiErrorFactory errorFactory;
     private final JsonMapper jsonMapper;
@@ -56,14 +53,14 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
         write(response, errorFactory.create(HttpStatus.UNAUTHORIZED,
                 expired ? ErrorCode.TOKEN_EXPIRED : ErrorCode.UNAUTHENTICATED,
-                expired ? TOKEN_EXPIRED_MESSAGE : UNAUTHENTICATED_MESSAGE,
+                expired ? SecurityMessages.TOKEN_EXPIRED : SecurityMessages.UNAUTHENTICATED,
                 request.getRequestURI()));
     }
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException exception) throws IOException {
-        write(response, errorFactory.create(HttpStatus.FORBIDDEN, ErrorCode.ACCESS_DENIED, ACCESS_DENIED_MESSAGE,
+        write(response, errorFactory.create(HttpStatus.FORBIDDEN, ErrorCode.ACCESS_DENIED, SecurityMessages.ACCESS_DENIED,
                 request.getRequestURI()));
     }
 

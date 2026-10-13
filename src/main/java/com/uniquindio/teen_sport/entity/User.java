@@ -150,6 +150,13 @@ public class User {
         return email;
     }
 
+    /**
+     * @param email nuevo correo, ya normalizado y verificado como disponible
+     */
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
     public String getPasswordHash() {
         return passwordHash;
     }

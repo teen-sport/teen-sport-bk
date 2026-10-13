@@ -3,22 +3,15 @@ package com.uniquindio.teen_sport.service;
 import com.uniquindio.teen_sport.dto.RegisterGuardianRequest;
 import com.uniquindio.teen_sport.dto.UserProfile;
 import com.uniquindio.teen_sport.entity.Guardian;
-import com.uniquindio.teen_sport.entity.Role;
 import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.mapper.UserProfileMapper;
 import com.uniquindio.teen_sport.repository.GuardianRepository;
-import com.uniquindio.teen_sport.repository.RoleRepository;
-import com.uniquindio.teen_sport.repository.UserRepository;
-import com.uniquindio.teen_sport.validation.EmailNormalizer;
-import com.uniquindio.teen_sport.validation.PasswordPolicy;
 import com.uniquindio.teen_sport.validation.TextNormalizer;
 import java.time.Clock;
-import java.time.Instant;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,34 +26,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class GuardianRegistrationService {
 
     static final String DATA_POLICY_MESSAGE = "Debes aceptar la política de tratamiento de datos personales.";
-    static final String EMAIL_TAKEN_MESSAGE = "El correo electrónico ya está registrado.";
-    static final String ID_NUMBER_TAKEN_MESSAGE = "El número de documento ya está registrado.";
 
-    private final UserRepository userRepository;
+    private final AccountCreator accountCreator;
     private final GuardianRepository guardianRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final PasswordPolicy passwordPolicy;
     private final UserProfileMapper profileMapper;
     private final Clock clock;
 
     /**
-     * @param userRepository     cuentas
+     * @param accountCreator     creación de cuentas con las reglas comunes
      * @param guardianRepository perfiles de acudiente
-     * @param roleRepository     catálogo de roles
-     * @param passwordEncoder    hash BCrypt
-     * @param passwordPolicy     fortaleza de contraseñas
      * @param profileMapper      salida pública del perfil
      * @param clock              reloj de la aplicación
      */
-    public GuardianRegistrationService(UserRepository userRepository, GuardianRepository guardianRepository,
-                                       RoleRepository roleRepository, PasswordEncoder passwordEncoder,
-                                       PasswordPolicy passwordPolicy, UserProfileMapper profileMapper, Clock clock) {
-        this.userRepository = userRepository;
+    public GuardianRegistrationService(AccountCreator accountCreator, GuardianRepository guardianRepository,
+                                       UserProfileMapper profileMapper, Clock clock) {
+        this.accountCreator = accountCreator;
         this.guardianRepository = guardianRepository;
-        this.roleRepository = roleRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.passwordPolicy = passwordPolicy;
         this.profileMapper = profileMapper;
         this.clock = clock;
     }
@@ -77,41 +58,13 @@ public class GuardianRegistrationService {
             throw new BusinessException(ErrorCode.DATA_POLICY_NOT_ACCEPTED, HttpStatus.UNPROCESSABLE_CONTENT,
                     DATA_POLICY_MESSAGE);
         }
-        passwordPolicy.validate(request.password());
-        String email = EmailNormalizer.normalize(request.email());
-        String idNumber = request.idNumber().trim();
-        ensureNotRegistered(email, idNumber);
+        User user = accountCreator.create(new AccountCreator.NewAccount(RoleName.GUARDIAN, request.idType(),
+                request.idNumber(), request.firstNames(), request.lastNames(), request.email(), request.phone(),
+                request.password()));
+        user.acceptDataPolicy(clock.instant());
 
-        Instant now = clock.instant();
-        User user = new User(guardianRole(), email, passwordEncoder.encode(request.password()), now);
-        user.setDocumentType(request.idType().trim());
-        user.setDocumentNumber(idNumber);
-        user.setFirstName(request.firstNames().trim());
-        user.setLastName(request.lastNames().trim());
-        user.setPhone(request.phone().trim());
-        user.acceptDataPolicy(now);
-        userRepository.save(user);
-
-        Guardian guardian = guardianRepository.save(new Guardian(user, TextNormalizer.trimToNull(request.homeAddress())));
+        Guardian guardian = guardianRepository.save(
+                new Guardian(user, TextNormalizer.trimToNull(request.homeAddress())));
         return profileMapper.toProfile(user, guardian, null);
-    }
-
-    private void ensureNotRegistered(String email, String idNumber) {
-        if (userRepository.existsByEmail(email)) {
-            throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED, HttpStatus.CONFLICT, EMAIL_TAKEN_MESSAGE);
-        }
-        if (userRepository.existsByDocumentNumber(idNumber)) {
-            throw new BusinessException(ErrorCode.ID_NUMBER_ALREADY_REGISTERED, HttpStatus.CONFLICT,
-                    ID_NUMBER_TAKEN_MESSAGE);
-        }
-    }
-
-    /**
-     * Los roles se crean al arrancar ({@code ReferenceDataInitializer}); su ausencia es un fallo de
-     * configuración, no un error del cliente.
-     */
-    private Role guardianRole() {
-        return roleRepository.findByName(RoleName.GUARDIAN)
-                .orElseThrow(() -> new IllegalStateException("El rol GUARDIAN no está inicializado"));
     }
 }

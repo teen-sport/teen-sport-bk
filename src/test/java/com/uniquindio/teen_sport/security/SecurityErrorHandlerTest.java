@@ -1,5 +1,6 @@
 package com.uniquindio.teen_sport.security;
 
+import com.uniquindio.teen_sport.exception.SecurityMessages;
 import com.uniquindio.teen_sport.dto.ChangePasswordRequest;
 import com.uniquindio.teen_sport.dto.LoginRequest;
 import com.uniquindio.teen_sport.dto.RegisterGuardianRequest;
@@ -40,7 +41,7 @@ class SecurityErrorHandlerTest {
         assertThat(response.getContentAsString())
                 .contains("\"code\":\"ACCESS_DENIED\"")
                 .contains("\"path\":\"/api/v1/users\"")
-                .contains(SecurityErrorHandler.ACCESS_DENIED_MESSAGE)
+                .contains(SecurityMessages.ACCESS_DENIED)
                 .doesNotContain("rol insuficiente");
     }
 

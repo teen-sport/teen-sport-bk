@@ -46,8 +46,11 @@ class GuardianRegistrationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GuardianRegistrationService(userRepository, guardianRepository, roleRepository,
-                passwordEncoder, new PasswordPolicy(), new UserProfileMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        AccountCreator accountCreator = new AccountCreator(userRepository, roleRepository, passwordEncoder,
+                new PasswordPolicy(), clock);
+        service = new GuardianRegistrationService(accountCreator, guardianRepository, new UserProfileMapper(), clock);
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(roleRepository.findByName(RoleName.GUARDIAN))
                 .thenReturn(Optional.of(new Role(RoleName.GUARDIAN, "Acudiente")));
         when(guardianRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

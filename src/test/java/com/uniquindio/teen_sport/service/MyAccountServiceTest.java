@@ -42,7 +42,7 @@ class MyAccountServiceTest {
     @BeforeEach
     void setUp() {
         service = new MyAccountService(userRepository, new RoleProfileResolver(guardianRepository, coachRepository),
-                new UserProfileMapper(), passwordEncoder, new PasswordPolicy());
+                new ProfileEditor(), new UserProfileMapper(), passwordEncoder, new PasswordPolicy());
     }
 
     @Test

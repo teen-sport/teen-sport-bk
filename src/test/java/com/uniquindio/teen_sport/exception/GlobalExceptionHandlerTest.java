@@ -11,6 +11,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -140,6 +141,14 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isUnsupportedMediaType());
     }
 
+    @Test
+    void methodSecurityDenialIsForbiddenNotInternalError() throws Exception {
+        mockMvc.perform(get("/test/denied"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+                .andExpect(jsonPath("$.message").value(SecurityMessages.ACCESS_DENIED));
+    }
+
     record NameRequest(@NotBlank String name) {
     }
 
@@ -150,6 +159,11 @@ class GlobalExceptionHandlerTest {
         void business() {
             throw new BusinessException(ErrorCode.NO_AVAILABLE_SPOTS, HttpStatus.UNPROCESSABLE_CONTENT,
                     "No hay cupos disponibles.");
+        }
+
+        @GetMapping("/test/denied")
+        void denied() {
+            throw new AccessDeniedException("rol insuficiente");
         }
 
         @GetMapping("/test/unexpected")
