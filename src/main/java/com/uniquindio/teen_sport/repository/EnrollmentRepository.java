@@ -2,6 +2,7 @@ package com.uniquindio.teen_sport.repository;
 
 import com.uniquindio.teen_sport.entity.Enrollment;
 import com.uniquindio.teen_sport.entity.EnrollmentStatus;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -11,6 +12,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,6 +38,19 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      */
     @EntityGraph(attributePaths = {"athlete", "group", "group.discipline"})
     Optional<Enrollment> findDetailedById(Integer id);
+
+    /**
+     * Bloquea la matrícula hasta el fin de la transacción, para que dos cambios de estado o de grupo
+     * simultáneos sobre ella se serialicen. No carga sus relaciones en la misma consulta: así solo se
+     * bloquea la fila de la matrícula y no las del deportista o el grupo, que otros casos de uso
+     * bloquean en su propio orden.
+     *
+     * @param id id de la matrícula
+     * @return la matrícula bloqueada
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Enrollment e where e.id = :id")
+    Optional<Enrollment> findLockedById(@Param("id") Integer id);
 
     /**
      * Cupos ocupados de varios grupos en una sola consulta. Los grupos sin matrículas en esos estados

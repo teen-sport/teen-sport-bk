@@ -6,7 +6,6 @@ import com.uniquindio.teen_sport.dto.EnrollmentDetail;
 import com.uniquindio.teen_sport.entity.Athlete;
 import com.uniquindio.teen_sport.entity.Enrollment;
 import com.uniquindio.teen_sport.entity.EnrollmentStatus;
-import com.uniquindio.teen_sport.entity.EntityStatus;
 import com.uniquindio.teen_sport.entity.Group;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
@@ -15,6 +14,7 @@ import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
 import com.uniquindio.teen_sport.validation.AthleteAgePolicy;
+import com.uniquindio.teen_sport.validation.GroupEnrollmentPolicy;
 import com.uniquindio.teen_sport.validation.PeriodPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -46,7 +46,6 @@ public class EnrollmentService {
 
     static final String ATHLETE_NOT_FOUND_MESSAGE = "El deportista no existe.";
     static final String GROUP_NOT_FOUND_MESSAGE = "El grupo no existe.";
-    static final String GROUP_INACTIVE_MESSAGE = "El grupo no está disponible para matrículas.";
     static final String DUPLICATE_MESSAGE = "El deportista ya tiene una matrícula vigente en esta disciplina.";
 
     private final EnrollmentRepository enrollmentRepository;
@@ -98,7 +97,7 @@ public class EnrollmentService {
                 .orElseThrow(() -> notFound(GROUP_NOT_FOUND_MESSAGE));
         AthleteAgePolicy.requireEligible(athlete.getBirthDate(), calendar.today());
         PeriodPolicy.requireNotPast(request.period(), calendar.currentPeriod());
-        requireOpenForEnrollment(group);
+        GroupEnrollmentPolicy.requireOpen(group);
         if (enrollmentRepository.existsByAthleteIdAndGroupDisciplineIdAndStatusIn(athlete.getId(),
                 group.getDiscipline().getId(), EnrollmentStatus.IN_FORCE)) {
             throw new BusinessException(ErrorCode.DUPLICATE_ENROLLMENT, HttpStatus.CONFLICT, DUPLICATE_MESSAGE);
@@ -107,13 +106,6 @@ public class EnrollmentService {
         Enrollment enrollment = enrollmentRepository.save(
                 new Enrollment(athlete, group, request.period(), calendar.now()));
         return queryService.detail(enrollment);
-    }
-
-    private static void requireOpenForEnrollment(Group group) {
-        if (group.getStatus() != EntityStatus.ACTIVE || group.getDiscipline().getStatus() != EntityStatus.ACTIVE) {
-            throw new BusinessException(ErrorCode.GROUP_INACTIVE, HttpStatus.UNPROCESSABLE_CONTENT,
-                    GROUP_INACTIVE_MESSAGE);
-        }
     }
 
     private static BusinessException notFound(String message) {

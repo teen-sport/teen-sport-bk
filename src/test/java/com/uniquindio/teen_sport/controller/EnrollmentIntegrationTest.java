@@ -5,18 +5,12 @@ import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.support.AcademyTestClient;
 import com.uniquindio.teen_sport.support.AuthTestClient;
+import com.uniquindio.teen_sport.support.ConcurrentRequests;
 import com.uniquindio.teen_sport.support.AuthTestClient.TestGuardian;
 import com.uniquindio.teen_sport.support.IntegrationTest;
 import java.time.YearMonth;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -219,7 +213,7 @@ class EnrollmentIntegrationTest {
         int firstAthlete = academy.newAthlete(token);
         int secondAthlete = academy.newAthlete(token);
 
-        List<Integer> statuses = concurrently(
+        List<Integer> statuses = ConcurrentRequests.run(
                 () -> statusOf(academy.requestEnrollment(token, firstAthlete, groupId, CURRENT.toString())),
                 () -> statusOf(academy.requestEnrollment(token, secondAthlete, groupId, CURRENT.toString())));
 
@@ -234,7 +228,7 @@ class EnrollmentIntegrationTest {
         int first = academy.newGroup(disciplineId, coachId);
         int second = academy.newGroup(disciplineId, coachId);
 
-        List<Integer> statuses = concurrently(
+        List<Integer> statuses = ConcurrentRequests.run(
                 () -> statusOf(academy.requestEnrollment(token, athleteId, first, CURRENT.toString())),
                 () -> statusOf(academy.requestEnrollment(token, athleteId, second, CURRENT.toString())));
 
@@ -277,28 +271,5 @@ class EnrollmentIntegrationTest {
 
     private static int idOf(ResultActions result) throws Exception {
         return JsonPath.read(result.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
-    }
-
-    @SafeVarargs
-    private static List<Integer> concurrently(Callable<Integer>... requests) throws Exception {
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(requests.length);
-        try {
-            List<Future<Integer>> results = new ArrayList<>();
-            for (Callable<Integer> request : requests) {
-                results.add(executor.submit(() -> {
-                    start.await();
-                    return request.call();
-                }));
-            }
-            start.countDown();
-            List<Integer> statuses = new ArrayList<>();
-            for (Future<Integer> result : results) {
-                statuses.add(result.get(30, TimeUnit.SECONDS));
-            }
-            return statuses;
-        } finally {
-            executor.shutdownNow();
-        }
     }
 }
