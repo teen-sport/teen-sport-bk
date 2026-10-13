@@ -103,12 +103,20 @@ public class Enrollment {
         return group;
     }
 
+    public void setGroup(Group group) {
+        this.group = group;
+    }
+
     public YearMonth getPeriod() {
         return YearMonth.parse(periodMonth);
     }
 
     public EnrollmentStatus getStatus() {
         return status;
+    }
+
+    public void setStatus(EnrollmentStatus status) {
+        this.status = status;
     }
 
     public PaymentStatus getPaymentStatus() {
@@ -119,8 +127,16 @@ public class Enrollment {
         return reviewNotes;
     }
 
+    public void setReviewNotes(String reviewNotes) {
+        this.reviewNotes = reviewNotes;
+    }
+
     public Instant getConfirmedAt() {
         return confirmedAt;
+    }
+
+    public void setConfirmedAt(Instant confirmedAt) {
+        this.confirmedAt = confirmedAt;
     }
 
     public boolean isPaymentReported() {

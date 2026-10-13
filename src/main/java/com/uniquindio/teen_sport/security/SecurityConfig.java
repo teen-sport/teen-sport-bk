@@ -74,7 +74,17 @@ public class SecurityConfig {
     };
 
     /**
-     * Disponibilidad y matrículas (E5–E8): administradores y acudientes; la propiedad se comprueba
+     * Revisión de matrículas (E12, E13, E15): solo {@code ADMIN}. Debe evaluarse antes que
+     * {@link #ENROLLMENT_ENDPOINTS}.
+     */
+    private static final String[] ENROLLMENT_REVIEW_ENDPOINTS = {
+            API_PREFIX + "/enrollments/*/confirm",
+            API_PREFIX + "/enrollments/*/reject",
+            API_PREFIX + "/enrollments/*/group"
+    };
+
+    /**
+     * Disponibilidad y matrículas (E5–E8, E14): administradores y acudientes; la propiedad se comprueba
      * en el servicio.
      */
     private static final String[] ENROLLMENT_ENDPOINTS = {
@@ -124,6 +134,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
                         .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
+                        .requestMatchers(ENROLLMENT_REVIEW_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(ENROLLMENT_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
                         .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
                         .requestMatchers(GROUP_ENDPOINTS).hasRole("ADMIN")

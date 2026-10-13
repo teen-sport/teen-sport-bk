@@ -602,6 +602,10 @@ paths:
         **Roles:** ADMIN. Moves to `ACTIVE`, sets `confirmedAt`, and sends `ENROLLMENT_CONFIRMED` after commit (not awaited, RNF-04).
         `groupId` (optional) assigns another group of the same discipline; `payment` (optional, same body as E17) registers the payment
         in the same call, under the same rules as E17, and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
+        Until payments exist (phase 5) `payment` is not read and the enrollment always stays `OVERDUE`; the e-mail is sent once the
+        mail adapter exists (phase 7). Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
+        the current group must still be active (422 `GROUP_INACTIVE`); another group must be of the same discipline, active and with a
+        free spot.
       x-endpoint-id: E12
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, INSUFFICIENT_AMOUNT, FUTURE_DATE]
@@ -631,7 +635,7 @@ paths:
       summary: Reject an enrollment
       description: |
         **Roles:** ADMIN. Only from `PENDING_REVIEW`. Terminal state `REJECTED`; frees the spot;
-        sends `ENROLLMENT_REJECTED` with the reason.
+        sends `ENROLLMENT_REJECTED` with the reason (once the mail adapter exists, phase 7). The reason is stored as `reviewNotes`.
       x-endpoint-id: E13
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
@@ -661,7 +665,8 @@ paths:
       description: |
         **Roles:** GUARDIAN (own, only while the enrollment is not `ACTIVE`), ADMIN (any non-terminal enrollment).
         Terminal state `CANCELLED`; frees the spot. Counts as abandonment in report R1.
-        A guardian trying to cancel an `ACTIVE` enrollment gets 403 `ACCESS_DENIED`.
+        A guardian trying to cancel an `ACTIVE` enrollment gets 403 `ACCESS_DENIED`. A `REJECTED` or `CANCELLED` enrollment returns
+        409 `INVALID_STATE`. A non-blank `reason` is stored as `reviewNotes`.
       x-endpoint-id: E14
       x-roles: [GUARDIAN, ADMIN]
       x-error-codes: [ACCESS_DENIED, NOT_FOUND, INVALID_STATE]
@@ -689,7 +694,8 @@ paths:
       summary: Move an enrollment to another group of the same discipline
       description: |
         **Roles:** ADMIN. Same discipline; the enrollment keeps its start period. The spot in the old group is released and one in the new group is reserved.
-        Past sessions and attendance are not touched.
+        Past sessions and attendance are not touched. Only in-force enrollments (`PENDING_REVIEW` or `ACTIVE`) can move
+        (409 `INVALID_STATE`); the status does not change. Sending the current group changes nothing.
       x-endpoint-id: E15
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS]
