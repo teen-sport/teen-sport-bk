@@ -37,6 +37,6 @@ public record TimeSlot(DayOfWeek day, LocalTime start, LocalTime end) {
      * @return {@code true} si ambas franjas comparten algún momento
      */
     public boolean overlaps(TimeSlot other) {
-        return day == other.day && start.isBefore(other.end) && other.start.isBefore(end);
+        return day.equals(other.day) && start.isBefore(other.end) && other.start.isBefore(end);
     }
 }
