@@ -12,6 +12,7 @@ import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.mapper.UserProfileMapper;
 import com.uniquindio.teen_sport.repository.CoachRepository;
+import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.repository.UserRepository;
 import com.uniquindio.teen_sport.repository.UserSearchSpecifications;
 import com.uniquindio.teen_sport.validation.EmailNormalizer;
@@ -36,12 +37,15 @@ public class UserAdministrationService {
 
     static final String USER_NOT_FOUND_MESSAGE = "El usuario no existe.";
     static final String CANNOT_DEACTIVATE_SELF_MESSAGE = "No puedes desactivar tu propia cuenta.";
+    static final String COACH_HAS_ACTIVE_GROUPS_MESSAGE =
+            "El entrenador tiene grupos activos. Reasígnalos o desactívalos antes de desactivar su cuenta.";
 
     /** Orden de los listados: apellidos, nombres y, para desempatar, id. */
     static final Sort USER_ORDER = Sort.by("lastName", "firstName", "id");
 
     private final UserRepository userRepository;
     private final CoachRepository coachRepository;
+    private final GroupRepository groupRepository;
     private final AccountCreator accountCreator;
     private final RoleProfileResolver roleProfileResolver;
     private final ProfileEditor profileEditor;
@@ -50,16 +54,18 @@ public class UserAdministrationService {
     /**
      * @param userRepository      cuentas
      * @param coachRepository     perfiles de entrenador
+     * @param groupRepository     grupos de entrenamiento
      * @param accountCreator      creación de cuentas con las reglas comunes
      * @param roleProfileResolver perfil de acudiente o entrenador de cada cuenta
      * @param profileEditor       aplicación de los datos editables del perfil
      * @param profileMapper       salida pública del perfil
      */
     public UserAdministrationService(UserRepository userRepository, CoachRepository coachRepository,
-                                     AccountCreator accountCreator, RoleProfileResolver roleProfileResolver,
+                                     GroupRepository groupRepository, AccountCreator accountCreator, RoleProfileResolver roleProfileResolver,
                                      ProfileEditor profileEditor, UserProfileMapper profileMapper) {
         this.userRepository = userRepository;
         this.coachRepository = coachRepository;
+        this.groupRepository = groupRepository;
         this.accountCreator = accountCreator;
         this.roleProfileResolver = roleProfileResolver;
         this.profileEditor = profileEditor;
@@ -148,14 +154,15 @@ public class UserAdministrationService {
      * U10: activa o desactiva una cuenta. Una cuenta inactiva no puede iniciar sesión; los tokens ya
      * emitidos vencen por sí solos.
      *
-     * <p>Pendiente de la Fase 3: rechazar con {@code COACH_HAS_ACTIVE_GROUPS} la desactivación de un
-     * entrenador con grupos activos, cuando existan los grupos.</p>
+     * <p>No se puede desactivar a un entrenador que tenga grupos activos: primero hay que reasignarlos
+     * (H11) o desactivarlos (H10).</p>
      *
      * @param actingUserId id del administrador que hace el cambio
      * @param userId       id de la cuenta
      * @param status       nuevo estado
      * @return el perfil actualizado
-     * @throws BusinessException 404 {@code NOT_FOUND}; 422 {@code CANNOT_DEACTIVATE_SELF}
+     * @throws BusinessException 404 {@code NOT_FOUND}; 422 {@code CANNOT_DEACTIVATE_SELF};
+     *                           409 {@code COACH_HAS_ACTIVE_GROUPS}
      */
     @Transactional
     public UserProfile changeStatus(Integer actingUserId, Integer userId, EntityStatus status) {
@@ -164,8 +171,14 @@ public class UserAdministrationService {
             throw new BusinessException(ErrorCode.CANNOT_DEACTIVATE_SELF, HttpStatus.UNPROCESSABLE_CONTENT,
                     CANNOT_DEACTIVATE_SELF_MESSAGE);
         }
+        RoleProfileResolver.RoleProfiles profiles = roleProfileResolver.resolve(user);
+        if (status == EntityStatus.INACTIVE && profiles.coach() != null
+                && groupRepository.existsByCoachIdAndStatus(profiles.coachId(), EntityStatus.ACTIVE)) {
+            throw new BusinessException(ErrorCode.COACH_HAS_ACTIVE_GROUPS, HttpStatus.CONFLICT,
+                    COACH_HAS_ACTIVE_GROUPS_MESSAGE);
+        }
         user.setStatus(status);
-        return toProfile(user, roleProfileResolver.resolve(user));
+        return toProfile(user, profiles);
     }
 
     private User findUser(Integer userId) {

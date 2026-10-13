@@ -73,6 +73,18 @@ public class SecurityConfig {
             API_PREFIX + "/athletes/**"
     };
 
+    /** Grupos (H6–H12): lectura para administradores y entrenadores; escritura solo {@code ADMIN}. */
+    private static final String[] GROUP_ENDPOINTS = {
+            API_PREFIX + "/groups",
+            API_PREFIX + "/groups/**"
+    };
+
+    /** Franjas ya creadas (H13, H14): solo {@code ADMIN}. */
+    private static final String[] SCHEDULE_ENDPOINTS = {
+            API_PREFIX + "/schedules",
+            API_PREFIX + "/schedules/**"
+    };
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/actuator/health", "/actuator/health/**",
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
@@ -102,6 +114,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
                         .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
+                        .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
+                        .requestMatchers(GROUP_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(SCHEDULE_ENDPOINTS).hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))

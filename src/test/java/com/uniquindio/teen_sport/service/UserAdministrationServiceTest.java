@@ -14,6 +14,7 @@ import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.mapper.UserProfileMapper;
 import com.uniquindio.teen_sport.repository.CoachRepository;
+import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.repository.GuardianRepository;
 import com.uniquindio.teen_sport.repository.RoleRepository;
 import com.uniquindio.teen_sport.repository.UserRepository;
@@ -51,13 +52,14 @@ class UserAdministrationServiceTest {
     private final RoleRepository roleRepository = mock(RoleRepository.class);
     private final GuardianRepository guardianRepository = mock(GuardianRepository.class);
     private final CoachRepository coachRepository = mock(CoachRepository.class);
+    private final GroupRepository groupRepository = mock(GroupRepository.class);
     private UserAdministrationService service;
 
     @BeforeEach
     void setUp() {
         AccountCreator accountCreator = new AccountCreator(userRepository, roleRepository,
                 new BCryptPasswordEncoder(4), new PasswordPolicy(), Clock.fixed(NOW, ZoneOffset.UTC));
-        service = new UserAdministrationService(userRepository, coachRepository, accountCreator,
+        service = new UserAdministrationService(userRepository, coachRepository, groupRepository, accountCreator,
                 new RoleProfileResolver(guardianRepository, coachRepository), new ProfileEditor(),
                 new UserProfileMapper());
         for (RoleName name : RoleName.values()) {
@@ -165,6 +167,33 @@ class UserAdministrationServiceTest {
         assertThat(ex.getCode()).isEqualTo(ErrorCode.CANNOT_DEACTIVATE_SELF);
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(user.getStatus()).isEqualTo(EntityStatus.ACTIVE);
+    }
+
+    @Test
+    void coachWithActiveGroupsCannotBeDeactivated() {
+        User coachUser = existing(9, RoleName.COACH, "c@teensport.test");
+        Coach coach = new Coach(coachUser, null, null);
+        ReflectionTestUtils.setField(coach, "id", 90);
+        when(coachRepository.findByUserId(9)).thenReturn(Optional.of(coach));
+        when(groupRepository.existsByCoachIdAndStatus(90, EntityStatus.ACTIVE)).thenReturn(true);
+
+        BusinessException ex = failure(() -> service.changeStatus(1, 9, EntityStatus.INACTIVE));
+
+        assertThat(ex.getCode()).isEqualTo(ErrorCode.COACH_HAS_ACTIVE_GROUPS);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(coachUser.getStatus()).isEqualTo(EntityStatus.ACTIVE);
+    }
+
+    @Test
+    void coachWithoutActiveGroupsCanBeDeactivated() {
+        User coachUser = existing(9, RoleName.COACH, "c@teensport.test");
+        Coach coach = new Coach(coachUser, null, null);
+        ReflectionTestUtils.setField(coach, "id", 90);
+        when(coachRepository.findByUserId(9)).thenReturn(Optional.of(coach));
+
+        service.changeStatus(1, 9, EntityStatus.INACTIVE);
+
+        assertThat(coachUser.getStatus()).isEqualTo(EntityStatus.INACTIVE);
     }
 
     @Test

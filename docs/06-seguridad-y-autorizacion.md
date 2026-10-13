@@ -64,6 +64,7 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - Autorización por rol (HU30): las rutas exclusivas de `ADMIN` (`/users` salvo `/users/me` y el registro, `/coaches`, `/guardians`) se restringen en `SecurityConfig`, de modo que un usuario sin permiso recibe `403` antes de que se lea o valide el cuerpo. Los controladores repiten la regla con `@PreAuthorize` como segunda barrera, y `GlobalExceptionHandler` traduce ese rechazo a `403 ACCESS_DENIED`.
 - Disciplinas (HU32): `GET /disciplines/**` para cualquier rol autenticado; `POST`, `PUT` y `PATCH` solo `ADMIN`, restringidos en el filtro y con `@PreAuthorize`.
 - Deportistas (HU34): `/athletes/**` solo `ADMIN` y `GUARDIAN` (filtro y `@PreAuthorize`). La propiedad se comprueba en `service/AthleteAccessPolicy` con el `guardianId` del token: un acudiente nunca ve ni modifica deportistas ajenos, y el `guardianId` que envíe se ignora. Las respuestas solo incluyen los campos del contrato y los logs no registran datos de los menores.
+- Grupos y franjas (HU33): `GET /groups/**` para `ADMIN` y `COACH`; escritura en `/groups/**` y `/schedules/**` solo `ADMIN` (filtro y `@PreAuthorize`). La propiedad de los grupos se comprueba en `service/GroupAccessPolicy` con el `coachId` del token.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.

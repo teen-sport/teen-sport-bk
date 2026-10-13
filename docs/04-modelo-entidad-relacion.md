@@ -15,7 +15,7 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 | `coaches` | Perfil de entrenador asociado a un usuario (1:1, `user_id` único); incluye especialidad y años de experiencia. No tiene columna de estado: el estado del entrenador es `users.status`. |
 | `athletes` | Datos del deportista: acudiente asociado, tipo y número de documento de identidad (único), nombres, apellidos, fecha de nacimiento, género y fecha de creación. |
 | `disciplines` | Catálogo de disciplinas con nombre (único), descripción, mensualidad y estado. |
-| `groups` / `training_groups` | Grupo de entrenamiento, disciplina, entrenador, nombre, capacidad máxima y estado. El OpenAPI indica que el nombre físico en MySQL 8 debe ser `training_groups`. |
+| `groups` | Grupo de entrenamiento, disciplina, entrenador, nombre, capacidad máxima y estado. El nombre físico de la tabla es `groups`, el del MER y el de la base desplegada (decisión del 2026-10-13); se descartó `training_groups`, que el contrato justificaba solo para MySQL 8. |
 | `schedules` | Horarios semanales asociados a un grupo, con día y hora de inicio/fin. |
 | `enrollments` | Matrícula del deportista a un grupo desde un mes de inicio (`period_month`), vigente mes a mes hasta su rechazo o cancelación; incluye estado, estado de pago, notas de revisión, fecha de confirmación, reporte de pago (indicador, fecha y nota) y fecha de creación. |
 | `payment_history` | Historial de pagos asociados a matrícula (varios por matrícula, como máximo uno por mes calendario de `payment_date`), con usuario administrador que registra, monto, fecha, referencia de recibo, notas y creación. |
@@ -52,7 +52,7 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 4. Evitar cascadas de borrado no aprobadas, especialmente en datos de menores, matrículas, pagos y asistencia.
 5. Definir índices sobre claves foráneas y filtros usados frecuentemente tras revisar consultas reales.
 6. Para disponibilidad y cupos, aplicar transacción y bloqueo/concurrencia según el contrato de E6.
-7. La nomenclatura de API no obliga a que el nombre físico de tabla sea igual; documentar mapeos explícitos, en particular `groups` → `training_groups`.
+7. La nomenclatura de API no obliga a que el nombre físico de tabla sea igual; documentar mapeos explícitos cuando difieran.
 
 ## Decisiones (2026-10-11)
 - Las entidades siguen el MER al pie de la letra, incluidos los tipos `INT` de los identificadores.
@@ -66,4 +66,4 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 - La regla de matrícula duplicada (una sola matrícula vigente por deportista y disciplina) depende del estado y de la disciplina del grupo, por lo que no es una restricción única de columnas: se valida en el servicio de matrículas dentro de la transacción que reserva el cupo.
 - La regla de un pago por mes se deriva del mes de `payment_date`, que no es una columna propia; se valida en el servicio de pagos y no con una restricción única de base de datos.
 - Alineado (2026-10-11): el OpenAPI declara los identificadores como `int32` y los montos como decimales de dos cifras, conforme al MER.
-- No asumir que la tabla `groups` es el nombre físico: el OpenAPI especifica `training_groups` para MySQL 8.
+- Resuelto (2026-10-13): la tabla física de los grupos es `groups`, no `training_groups`.

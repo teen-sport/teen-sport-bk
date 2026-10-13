@@ -8,6 +8,7 @@ import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.repository.DisciplineRepository;
+import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.validation.TextNormalizer;
 import java.util.List;
 import org.springframework.data.domain.Sort;
@@ -31,17 +32,22 @@ public class DisciplineService {
 
     static final String NOT_FOUND_MESSAGE = "La disciplina no existe.";
     static final String DUPLICATE_MESSAGE = "Ya existe una disciplina con ese nombre.";
+    static final String HAS_ACTIVE_GROUPS_MESSAGE =
+            "La disciplina tiene grupos activos. Desactívalos antes de desactivar la disciplina.";
 
     /** Orden del listado: nombre y, para desempatar, id. */
     static final Sort ORDER = Sort.by("name", "id");
 
     private final DisciplineRepository disciplineRepository;
+    private final GroupRepository groupRepository;
 
     /**
      * @param disciplineRepository catálogo de disciplinas
+     * @param groupRepository      grupos de entrenamiento
      */
-    public DisciplineService(DisciplineRepository disciplineRepository) {
+    public DisciplineService(DisciplineRepository disciplineRepository, GroupRepository groupRepository) {
         this.disciplineRepository = disciplineRepository;
+        this.groupRepository = groupRepository;
     }
 
     /**
@@ -115,17 +121,20 @@ public class DisciplineService {
     /**
      * H5: activa o desactiva una disciplina.
      *
-     * <p>Pendiente de la Fase 3: rechazar con {@code DISCIPLINE_HAS_ACTIVE_GROUPS} la desactivación
-     * de una disciplina con grupos activos, cuando existan los grupos.</p>
+     * <p>No se puede desactivar una disciplina que tenga grupos activos.</p>
      *
      * @param id     id de la disciplina
      * @param status nuevo estado
      * @return la disciplina actualizada
-     * @throws BusinessException 404 {@code NOT_FOUND}
+     * @throws BusinessException 404 {@code NOT_FOUND}; 409 {@code DISCIPLINE_HAS_ACTIVE_GROUPS}
      */
     @Transactional
     public DisciplineResponse changeStatus(Integer id, EntityStatus status) {
         Discipline discipline = find(id);
+        if (status == EntityStatus.INACTIVE && groupRepository.existsByDisciplineIdAndStatus(id, EntityStatus.ACTIVE)) {
+            throw new BusinessException(ErrorCode.DISCIPLINE_HAS_ACTIVE_GROUPS, HttpStatus.CONFLICT,
+                    HAS_ACTIVE_GROUPS_MESSAGE);
+        }
         discipline.setStatus(status);
         return DisciplineResponse.from(discipline);
     }

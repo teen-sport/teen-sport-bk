@@ -7,7 +7,7 @@
 4. Pruebas de rendimiento para RNF medibles.
 
 ## Herramientas sugeridas
-JUnit 5, Mockito, Spring Boot Test, MockMvc o WebTestClient según el stack MVC/reactivo real, Testcontainers con `postgres:18.6` para las pruebas que levantan el contexto completo o tocan persistencia (`PostgresTestcontainersConfiguration`; requiere Docker en ejecución), JaCoCo para cobertura y validación automatizada del OpenAPI. Confirmar versiones con `build.gradle`/`pom.xml` antes de añadir dependencias.
+JUnit 5, Mockito, Spring Boot Test, MockMvc o WebTestClient según el stack MVC/reactivo real, Testcontainers con `postgres:18.6` para las pruebas que levantan el contexto completo o tocan persistencia (`PostgresTestcontainersConfiguration`; requiere Docker en ejecución), JaCoCo para cobertura y validación automatizada del OpenAPI. Mockito se carga como `-javaagent` en la JVM de pruebas (configuración `mockitoAgent` de `build.gradle.kts`), como recomienda para JDK 21+, en lugar de adjuntarse en caliente con un proceso externo. Confirmar versiones con `build.gradle`/`pom.xml` antes de añadir dependencias.
 
 ## Casos transversales
 - Validación de DTO y errores de entrada.

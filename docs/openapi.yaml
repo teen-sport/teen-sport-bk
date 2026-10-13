@@ -281,8 +281,8 @@ paths:
       summary: Activate or deactivate a user
       description: |
         **Roles:** ADMIN. An inactive user cannot log in; a token already issued expires on its own.
-        An admin cannot deactivate their own account (422 `CANNOT_DEACTIVATE_SELF`). `COACH_HAS_ACTIVE_GROUPS` (409)
-        applies once training groups exist (phase 3).
+        An admin cannot deactivate their own account (422 `CANNOT_DEACTIVATE_SELF`). A coach with `ACTIVE` groups cannot be
+        deactivated (409 `COACH_HAS_ACTIVE_GROUPS`).
       x-endpoint-id: U10
       x-roles: [ADMIN]
       x-error-codes: [NOT_FOUND, CANNOT_DEACTIVATE_SELF, COACH_HAS_ACTIVE_GROUPS]
@@ -928,8 +928,7 @@ paths:
       operationId: updateDisciplineStatus
       summary: Activate or deactivate a discipline
       description: |
-        **Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups (409 `DISCIPLINE_HAS_ACTIVE_GROUPS`);
-        this check applies once training groups exist (phase 3).
+        **Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups (409 `DISCIPLINE_HAS_ACTIVE_GROUPS`).
       x-endpoint-id: H5
       x-roles: [ADMIN]
       x-error-codes: [NOT_FOUND, DISCIPLINE_HAS_ACTIVE_GROUPS]
@@ -986,7 +985,8 @@ paths:
       description: |
         **Roles:** ADMIN. `maxCapacity` is 1 to 15. The coach must be `ACTIVE`; the discipline must be `ACTIVE`.
         Created `ACTIVE`, without schedules (add them with H12).
-        Persisted in the table `training_groups` because `groups` is a reserved word in MySQL 8.
+        Persisted in the table `groups` (the ER model name, used by the deployed PostgreSQL database).
+        A coach or discipline that does not exist returns 404; an inactive one returns 422.
       x-endpoint-id: H8
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_MAX_CAPACITY, INVALID_COACH, DISCIPLINE_INACTIVE]
@@ -1058,10 +1058,13 @@ paths:
       tags: [Groups]
       operationId: updateGroupStatus
       summary: Activate or deactivate a group
-      description: '**Roles:** ADMIN. Deactivating is refused while the group has live enrollments or future sessions.'
+      description: |
+        **Roles:** ADMIN. Deactivating is refused while the group has live enrollments or future sessions.
+        Reactivating is refused (409 `COACH_SCHEDULE_CONFLICT`) if any of the group's slots overlaps a slot of another
+        `ACTIVE` group of the same coach, since slots of inactive groups do not block the coach.
       x-endpoint-id: H10
       x-roles: [ADMIN]
-      x-error-codes: [NOT_FOUND, GROUP_HAS_ACTIVITY]
+      x-error-codes: [NOT_FOUND, GROUP_HAS_ACTIVITY, COACH_SCHEDULE_CONFLICT]
       requestBody:
         required: true
         content:
@@ -1116,7 +1119,8 @@ paths:
       summary: Add a weekly schedule slot to a group
       description: |
         **Roles:** ADMIN. `endTime` must be after `startTime`. Rejected if it overlaps another slot of the group
-        or another slot of the same coach (`SCHEDULE_CONFLICT`).
+        or another slot of the same coach in an `ACTIVE` group (`SCHEDULE_CONFLICT`). Contiguous slots (16:00–17:00 and
+        17:00–18:00) do not overlap. Slots can be managed in inactive groups. Times use `HH:mm`.
       x-endpoint-id: H12
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_TIME_RANGE, SCHEDULE_CONFLICT]
