@@ -37,6 +37,13 @@ Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3
 - Disciplinas y reglas de estado.
 - DTO, validaciones y filtros de consulta.
 
+Se desarrolla por historias de usuario: HU32 (H1–H5, disciplinas) y HU34 (E1–E4, deportistas).
+
+**Estado (2026-10-12): en curso.**
+- HU32 implementada en `feature/HU32/discipline-management` (pendiente de revisión y PR): entidad `disciplines`, H1–H5, nombre único sin distinguir mayúsculas, mensualidad `DECIMAL(10,2)` > 0, listado de solo activas para no administradores, escritura solo `ADMIN`. `./gradlew check`: 164 pruebas en verde.
+- Decisiones para HU34: edad calculada con la zona de la academia (`America/Bogota`, configurable); en E4 la edad solo se valida si cambia `birthDate`; un administrador no puede registrar deportistas para un acudiente inactivo.
+- Pendiente para la Fase 3: `DISCIPLINE_HAS_ACTIVE_GROUPS` en H5.
+
 ## Fase 3 — Grupos y horarios
 - Grupos y asignación de entrenador.
 - Capacidad y validación de entrenador/disciplina activos.

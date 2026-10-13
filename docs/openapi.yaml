@@ -826,7 +826,9 @@ paths:
       tags: [Disciplines]
       operationId: listDisciplines
       summary: List disciplines
-      description: '**Roles:** ADMIN, COACH, GUARDIAN. Non-admins only see `ACTIVE` disciplines.'
+      description: |
+        **Roles:** ADMIN, COACH, GUARDIAN. Non-admins only see `ACTIVE` disciplines; for them the `status` filter is ignored.
+        Ordered by name.
       x-endpoint-id: H1
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: []
@@ -847,7 +849,9 @@ paths:
       tags: [Disciplines]
       operationId: createDiscipline
       summary: Create a discipline
-      description: '**Roles:** ADMIN. `monthlyFee` must be greater than 0; no range is enforced. Created `ACTIVE`.'
+      description: |
+        **Roles:** ADMIN. `monthlyFee` must be greater than 0 and fit `DECIMAL(10,2)`. Created `ACTIVE`.
+        `name` is unique ignoring case (409 `DUPLICATE_DISCIPLINE`).
       x-endpoint-id: H3
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, DUPLICATE_DISCIPLINE]
@@ -916,7 +920,9 @@ paths:
       tags: [Disciplines]
       operationId: updateDisciplineStatus
       summary: Activate or deactivate a discipline
-      description: '**Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups.'
+      description: |
+        **Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups (409 `DISCIPLINE_HAS_ACTIVE_GROUPS`);
+        this check applies once training groups exist (phase 3).
       x-endpoint-id: H5
       x-roles: [ADMIN]
       x-error-codes: [NOT_FOUND, DISCIPLINE_HAS_ACTIVE_GROUPS]

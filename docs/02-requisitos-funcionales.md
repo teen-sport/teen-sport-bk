@@ -36,7 +36,7 @@
 - No implementar pasarela de pagos en línea.
 
 ## Disciplinas, grupos y horarios
-- `H1–H5`: listar, consultar, crear, actualizar y activar/desactivar disciplinas. La mensualidad debe ser positiva. No se puede desactivar una disciplina con grupos activos.
+- `H1–H5`: listar, consultar, crear, actualizar y activar/desactivar disciplinas. La mensualidad debe ser positiva. No se puede desactivar una disciplina con grupos activos. El nombre es único sin distinguir mayúsculas y quien no es administrador solo ve disciplinas activas.
 - `H6–H11`: listar, consultar, crear, actualizar, activar/desactivar grupos y asignar entrenador.
 - La capacidad de grupo está entre 1 y 15. El entrenador y la disciplina deben estar activos al crear el grupo. El grupo se almacena como `training_groups` por ser `groups` palabra reservada en MySQL 8.
 - No reducir la capacidad por debajo de las matrículas vigentes (`PENDING_REVIEW` y `ACTIVE`) del grupo.

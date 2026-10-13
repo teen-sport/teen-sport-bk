@@ -61,6 +61,12 @@ public class SecurityConfig {
             API_PREFIX + "/guardians"
     };
 
+    /** Catálogo de disciplinas (H1–H5): lectura para cualquier rol, escritura solo {@code ADMIN}. */
+    private static final String[] DISCIPLINE_ENDPOINTS = {
+            API_PREFIX + "/disciplines",
+            API_PREFIX + "/disciplines/**"
+    };
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/actuator/health", "/actuator/health/**",
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
@@ -87,6 +93,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(OWN_ACCOUNT_ENDPOINTS).authenticated()
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
+                        .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
