@@ -1,6 +1,8 @@
 package com.uniquindio.teen_sport.support;
 
 import com.jayway.jsonpath.JsonPath;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -12,8 +14,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Prepara, como administrador y a través de la API, los datos de academia que necesitan las pruebas:
- * disciplinas, grupos y franjas. Usa nombres únicos para no chocar con otras pruebas.
+ * Prepara, a través de la API, los datos de academia que necesitan las pruebas: disciplinas, grupos,
+ * franjas y deportistas, y envía solicitudes de matrícula. Usa nombres únicos para no chocar con otras
+ * pruebas.
  */
 public class AcademyTestClient {
 
@@ -46,8 +49,19 @@ public class AcademyTestClient {
      * @throws Exception si la solicitud falla
      */
     public int newGroup(int disciplineId, int coachId) throws Exception {
-        String body = "{\"disciplineId\":%d,\"coachId\":%d,\"name\":\"Grupo %s\",\"maxCapacity\":15}"
-                .formatted(disciplineId, coachId, UUID.randomUUID().toString().substring(0, 8));
+        return newGroup(disciplineId, coachId, 15);
+    }
+
+    /**
+     * @param disciplineId disciplina
+     * @param coachId      entrenador
+     * @param capacity     capacidad máxima
+     * @return id de un grupo activo nuevo
+     * @throws Exception si la solicitud falla
+     */
+    public int newGroup(int disciplineId, int coachId, int capacity) throws Exception {
+        String body = "{\"disciplineId\":%d,\"coachId\":%d,\"name\":\"Grupo %s\",\"maxCapacity\":%d}"
+                .formatted(disciplineId, coachId, UUID.randomUUID().toString().substring(0, 8), capacity);
         return idOf(mockMvc.perform(post("/api/v1/groups").header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
                 .contentType(MediaType.APPLICATION_JSON).content(body)));
     }
@@ -65,6 +79,35 @@ public class AcademyTestClient {
                 .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(scheduleJson(day, start, end)));
+    }
+
+    /**
+     * Registra un deportista de 14 años para el acudiente del token.
+     *
+     * @param guardianToken token del acudiente
+     * @return id del deportista
+     * @throws Exception si la solicitud falla
+     */
+    public int newAthlete(String guardianToken) throws Exception {
+        String body = """
+                {"firstNames":"Sofía","lastNames":"Prueba","idType":"TI","idNumber":"%s","birthDate":"%s"}
+                """.formatted(TestAccounts.uniqueIdNumber(), LocalDate.now(ZoneId.of("America/Bogota")).minusYears(14));
+        return idOf(mockMvc.perform(post("/api/v1/athletes").header(HttpHeaders.AUTHORIZATION, bearer(guardianToken))
+                .contentType(MediaType.APPLICATION_JSON).content(body)));
+    }
+
+    /**
+     * @param token     token de quien solicita
+     * @param athleteId deportista
+     * @param groupId   grupo
+     * @param period    mes de inicio {@code YYYY-MM}
+     * @return la respuesta de E6, sin verificar
+     * @throws Exception si la solicitud falla
+     */
+    public ResultActions requestEnrollment(String token, int athleteId, int groupId, String period) throws Exception {
+        return mockMvc.perform(post("/api/v1/enrollments").header(HttpHeaders.AUTHORIZATION, bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"athleteId\":%d,\"groupId\":%d,\"period\":\"%s\"}".formatted(athleteId, groupId, period)));
     }
 
     /**

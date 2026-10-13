@@ -57,6 +57,7 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 ## Decisiones (2026-10-11)
 - Las entidades siguen el MER al pie de la letra, incluidos los tipos `INT` de los identificadores.
 - El estado del entrenador se toma de `users.status`.
+- El `period_month` (VARCHAR) se guarda como `YYYY-MM`, de modo que el orden del texto coincide con el cronológico y las consultas de cupos lo comparan directamente.
 - El `period_month` de una matrícula es su mes de inicio. Una matrícula puede tener varios pagos, como máximo uno por mes calendario; el mes que cubre un pago es el de su `payment_date` y el más reciente es el último pago.
 - El sistema no gestiona soportes documentales adjuntos (certificado médico ni autorización del acudiente). Las columnas `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path` del diagrama no se implementan; el diagrama se actualizará para retirarlas.
 

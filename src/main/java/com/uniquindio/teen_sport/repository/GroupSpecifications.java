@@ -8,7 +8,7 @@ import java.util.List;
 import org.springframework.data.jpa.domain.Specification;
 
 /**
- * Filtros parametrizados del listado de grupos (H6).
+ * Filtros parametrizados de los listados de grupos (H6 y E5).
  */
 public final class GroupSpecifications {
 
@@ -35,5 +35,17 @@ public final class GroupSpecifications {
             }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    /**
+     * Grupos que admiten matrículas: activos y de una disciplina activa (E5).
+     *
+     * @param disciplineId disciplina, o {@code null} para no filtrar
+     * @return filtro de grupos
+     */
+    public static Specification<Group> openForEnrollment(Integer disciplineId) {
+        Specification<Group> open = (root, query, cb) -> cb.equal(root.get("discipline").get("status"),
+                EntityStatus.ACTIVE);
+        return open.and(groups(disciplineId, null, EntityStatus.ACTIVE));
     }
 }

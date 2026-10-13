@@ -468,6 +468,8 @@ paths:
         **Roles:** ADMIN, GUARDIAN. Returns only `ACTIVE` groups of `ACTIVE` disciplines, with `occupiedSpots` and `availableSpots` for the period.
         Occupied spots count enrollments in `PENDING_REVIEW` and `ACTIVE` whose start `period` is on or before the requested period
         (an enrollment stays in force month to month from its start period until it is rejected or cancelled).
+        Because every in-force enrollment also takes a spot in all later months, `availableSpots` is `maxCapacity` minus all in-force
+        enrollments of the group (never negative): the spots that can still be reserved from that period on.
         This is the only endpoint guardians use to browse groups.
       x-endpoint-id: E5
       x-roles: [ADMIN, GUARDIAN]
@@ -500,7 +502,10 @@ paths:
         in force month to month until it is rejected or cancelled. Returns 409 `DUPLICATE_ENROLLMENT` when the athlete already has an
         in-force enrollment (`PENDING_REVIEW` or `ACTIVE`) in the same discipline, whatever its group or start period; to move to
         another group use E15. Enrollments in other disciplines are allowed.
-        When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409.
+        When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409
+        (the e-mail is sent once the mail adapter exists, phase 7). A spot is free when the group's in-force enrollments, whatever their
+        start period, are fewer than `maxCapacity`. Checks run in this order: athlete and group exist (404), ownership (403), age,
+        period, active group and discipline (422), duplicate and spots (409).
       x-endpoint-id: E6
       x-roles: [GUARDIAN, ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, AGE_OUT_OF_RANGE, PERIOD_IN_PAST, GROUP_INACTIVE, NO_AVAILABLE_SPOTS, DUPLICATE_ENROLLMENT]
@@ -525,7 +530,10 @@ paths:
       tags: [Enrollments]
       operationId: listEnrollments
       summary: List enrollments (paginated)
-      description: '**Roles:** ADMIN (all), GUARDIAN (own, automatic). Admin filters `paymentReported=true` to see families that reported a payment.'
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (own, automatic). Admin filters `paymentReported=true` to see families that reported a payment.
+        `period` returns the enrollments in force that month: start period on or before it and, unless `status` is given,
+        `PENDING_REVIEW` or `ACTIVE`. Sorted newest first.
       x-endpoint-id: E7
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: []
@@ -1059,7 +1067,8 @@ paths:
       operationId: updateGroupStatus
       summary: Activate or deactivate a group
       description: |
-        **Roles:** ADMIN. Deactivating is refused while the group has live enrollments or future sessions.
+        **Roles:** ADMIN. Deactivating is refused (409 `GROUP_HAS_ACTIVITY`) while the group has in-force enrollments
+        (`PENDING_REVIEW` or `ACTIVE`) or, from phase 6, future sessions.
         Reactivating is refused (409 `COACH_SCHEDULE_CONFLICT`) if any of the group's slots overlaps a slot of another
         `ACTIVE` group of the same coach, since slots of inactive groups do not block the coach.
       x-endpoint-id: H10
@@ -1998,7 +2007,7 @@ components:
         birthDate: { type: string, format: date }
         age: { type: integer, description: Computed on the response date. }
         gender: { type: string, nullable: true }
-        hasActiveEnrollment: { type: boolean }
+        hasActiveEnrollment: { type: boolean, description: The athlete has an enrollment in `PENDING_REVIEW` or `ACTIVE`. }
     AthletePage:
       allOf:
         - $ref: '#/components/schemas/PageMetadata'
@@ -2027,8 +2036,8 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Schedule' }
         maxCapacity: { type: integer }
-        occupiedSpots: { type: integer }
-        availableSpots: { type: integer }
+        occupiedSpots: { type: integer, description: In-force enrollments that started on or before the period. }
+        availableSpots: { type: integer, description: '`maxCapacity` minus all in-force enrollments, never negative.' }
     CreateEnrollmentRequest:
       type: object
       required: [athleteId, groupId, period]

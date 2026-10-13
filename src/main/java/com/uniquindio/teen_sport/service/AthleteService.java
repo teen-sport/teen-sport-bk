@@ -7,6 +7,7 @@ import com.uniquindio.teen_sport.dto.CreateAthleteRequest;
 import com.uniquindio.teen_sport.dto.PageResponse;
 import com.uniquindio.teen_sport.dto.UpdateAthleteRequest;
 import com.uniquindio.teen_sport.entity.Athlete;
+import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import com.uniquindio.teen_sport.entity.Guardian;
 import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.exception.BusinessException;
@@ -14,12 +15,15 @@ import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.exception.FieldValidationException;
 import com.uniquindio.teen_sport.repository.AthleteRepository;
 import com.uniquindio.teen_sport.repository.AthleteSpecifications;
+import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GuardianRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
 import com.uniquindio.teen_sport.validation.AthleteAgePolicy;
 import com.uniquindio.teen_sport.validation.TextNormalizer;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -39,6 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>El documento es único entre deportistas ({@code DUPLICATE_ATHLETE}).</li>
  *   <li>El acudiente debe haber aceptado la política de datos y, si lo indica un administrador,
  *       existir y estar activo.</li>
+ *   <li>{@code hasActiveEnrollment} indica si el deportista tiene alguna matrícula vigente
+ *       ({@code PENDING_REVIEW} o {@code ACTIVE}).</li>
  * </ul>
  */
 @Service
@@ -57,21 +63,25 @@ public class AthleteService {
 
     private final AthleteRepository athleteRepository;
     private final GuardianRepository guardianRepository;
+    private final EnrollmentRepository enrollmentRepository;
     private final AthleteAccessPolicy accessPolicy;
     private final AcademyCalendar calendar;
     private final Clock clock;
 
     /**
      * @param athleteRepository  deportistas
-     * @param guardianRepository acudientes
-     * @param accessPolicy       regla de propiedad
-     * @param calendar           fecha de negocio de la academia
-     * @param clock              reloj de la aplicación
+     * @param guardianRepository   acudientes
+     * @param enrollmentRepository matrículas
+     * @param accessPolicy         regla de propiedad
+     * @param calendar             fecha de negocio de la academia
+     * @param clock                reloj de la aplicación
      */
     public AthleteService(AthleteRepository athleteRepository, GuardianRepository guardianRepository,
-                          AthleteAccessPolicy accessPolicy, AcademyCalendar calendar, Clock clock) {
+                          EnrollmentRepository enrollmentRepository, AthleteAccessPolicy accessPolicy,
+                          AcademyCalendar calendar, Clock clock) {
         this.athleteRepository = athleteRepository;
         this.guardianRepository = guardianRepository;
+        this.enrollmentRepository = enrollmentRepository;
         this.accessPolicy = accessPolicy;
         this.calendar = calendar;
         this.clock = clock;
@@ -103,12 +113,13 @@ public class AthleteService {
         }
         Athlete athlete = new Athlete(guardian, clock.instant());
         apply(athlete, request);
-        return toResponse(athleteRepository.save(athlete), today);
+        return toResponse(athleteRepository.save(athlete), today, false);
     }
 
     /**
      * E2: listado paginado. Un acudiente solo recibe sus deportistas; el filtro {@code guardianId}
-     * solo lo usa un administrador.
+     * solo lo usa un administrador. Las matrículas vigentes de la página se consultan en una sola
+     * consulta.
      *
      * @param user       identidad autenticada
      * @param guardianId filtro por acudiente (administrador)
@@ -124,8 +135,10 @@ public class AthleteService {
         Page<Athlete> athletes = athleteRepository.findAll(AthleteSpecifications.athletes(scope, text),
                 PageRequest.of(page, size, ORDER));
         LocalDate today = calendar.today();
+        Set<Integer> enrolled = athletes.isEmpty() ? Set.of() : new HashSet<>(enrollmentRepository
+                .findAthleteIdsWithStatus(athletes.map(Athlete::getId).getContent(), EnrollmentStatus.IN_FORCE));
         return PageResponse.of(athletes, athletes.getContent().stream()
-                .map(athlete -> toResponse(athlete, today))
+                .map(athlete -> toResponse(athlete, today, enrolled.contains(athlete.getId())))
                 .toList());
     }
 
@@ -195,16 +208,16 @@ public class AthleteService {
         athlete.setGender(TextNormalizer.trimToNull(data.gender()));
     }
 
-    /**
-     * {@code hasActiveEnrollment} se responde {@code false} porque las matrículas se implementan en la
-     * Fase 4: hasta entonces ningún deportista puede tener una matrícula vigente. En esa fase se
-     * reemplaza por la consulta real.
-     */
-    private static AthleteResponse toResponse(Athlete athlete, LocalDate today) {
+    private AthleteResponse toResponse(Athlete athlete, LocalDate today) {
+        return toResponse(athlete, today,
+                enrollmentRepository.existsByAthleteIdAndStatusIn(athlete.getId(), EnrollmentStatus.IN_FORCE));
+    }
+
+    private static AthleteResponse toResponse(Athlete athlete, LocalDate today, boolean hasActiveEnrollment) {
         return new AthleteResponse(athlete.getId(), athlete.getGuardian().getId(), athlete.getFirstName(),
                 athlete.getLastName(), athlete.getDocumentType(), athlete.getDocumentNumber(),
                 athlete.getBirthDate(), AthleteAgePolicy.ageOn(athlete.getBirthDate(), today), athlete.getGender(),
-                false);
+                hasActiveEnrollment);
     }
 
     private static BusinessException duplicate() {
