@@ -171,7 +171,9 @@ paths:
       tags: [Users]
       operationId: listUsers
       summary: List users (paginated)
-      description: '**Roles:** ADMIN.'
+      description: |
+        **Roles:** ADMIN. Ordered by last names, first names and id. `q` matches, case-insensitively, first names,
+        last names, full name, e-mail or ID number; `%` and `_` are searched as literal text.
       x-endpoint-id: U6
       x-roles: [ADMIN]
       x-error-codes: []
@@ -202,7 +204,8 @@ paths:
       summary: Create a coach or an admin account
       description: |
         **Roles:** ADMIN. For a coach it also creates the `coaches` row.
-        `acceptedDataPolicy` is only enforced for guardians.
+        `acceptedDataPolicy` is only enforced for guardians. `role` must be `ADMIN` or `COACH`; any other value
+        returns 400 `VALIDATION_ERROR` on the field `staffRole`. `specialty` and `yearsOfExperience` are ignored for admins.
       x-endpoint-id: U8
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, EMAIL_ALREADY_REGISTERED, ID_NUMBER_ALREADY_REGISTERED, WEAK_PASSWORD]
@@ -246,7 +249,10 @@ paths:
       tags: [Users]
       operationId: updateUser
       summary: Update a user
-      description: '**Roles:** ADMIN. The role never changes.'
+      description: |
+        **Roles:** ADMIN. The role, ID and status never change here. `email` is optional: when omitted it is kept.
+        The other fields follow the rules of U4 (fields of another role are ignored; an omitted optional field of the
+        user's role is cleared).
       x-endpoint-id: U9
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, EMAIL_ALREADY_REGISTERED]
@@ -275,6 +281,8 @@ paths:
       summary: Activate or deactivate a user
       description: |
         **Roles:** ADMIN. An inactive user cannot log in; a token already issued expires on its own.
+        An admin cannot deactivate their own account (422 `CANNOT_DEACTIVATE_SELF`). `COACH_HAS_ACTIVE_GROUPS` (409)
+        applies once training groups exist (phase 3).
       x-endpoint-id: U10
       x-roles: [ADMIN]
       x-error-codes: [NOT_FOUND, CANNOT_DEACTIVATE_SELF, COACH_HAS_ACTIVE_GROUPS]
@@ -322,7 +330,9 @@ paths:
       tags: [Users]
       operationId: listGuardians
       summary: List guardians (paginated)
-      description: '**Roles:** ADMIN. Used when an admin registers an athlete on behalf of a guardian (E1).'
+      description: |
+        **Roles:** ADMIN. Used when an admin registers an athlete on behalf of a guardian (E1).
+        Ordered by last names and first names. `q` works as in U6.
       x-endpoint-id: U12
       x-roles: [ADMIN]
       x-error-codes: []

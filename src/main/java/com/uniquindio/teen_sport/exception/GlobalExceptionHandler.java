@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -142,6 +143,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiError> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, RESOURCE_NOT_FOUND_MESSAGE, List.of(), request);
+    }
+
+    /**
+     * Rol insuficiente detectado por {@code @PreAuthorize} dentro de Spring MVC. Sin este manejador
+     * caería en {@link #handleUnexpected} y respondería 500.
+     *
+     * @param ex      rechazo de autorización
+     * @param request solicitud en curso
+     * @return 403 {@code ACCESS_DENIED}
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, ErrorCode.ACCESS_DENIED, SecurityMessages.ACCESS_DENIED,
+                List.of(), request);
     }
 
     /**

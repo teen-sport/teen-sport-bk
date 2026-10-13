@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,15 +31,34 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *       ajeno no puede forjar solicitudes autenticadas.</li>
  *   <li>CORS limitado a los orígenes de {@link CorsProperties}.</li>
  *   <li>Públicos: login, registro de acudientes, salud y documentación OpenAPI. Todo lo demás
- *       exige un token válido; los roles de cada operación se comprueban además en su endpoint.</li>
+ *       exige un token válido.</li>
+ *   <li>Las rutas exclusivas de un rol se restringen aquí, en el filtro, para rechazar al usuario
+ *       sin permiso antes de leer o validar el cuerpo (de lo contrario recibiría un 400 con detalles
+ *       de validación en lugar del 403). Los endpoints repiten la regla con {@code @PreAuthorize}
+ *       ({@link EnableMethodSecurity}) como segunda barrera si una ruta cambia.</li>
  * </ul>
  */
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             API_PREFIX + "/auth/login",
             API_PREFIX + "/users/register"
+    };
+
+    /** Cuenta propia: cualquier rol autenticado. Debe evaluarse antes que {@link #ADMIN_ENDPOINTS}. */
+    private static final String[] OWN_ACCOUNT_ENDPOINTS = {
+            API_PREFIX + "/users/me",
+            API_PREFIX + "/users/me/**"
+    };
+
+    /** Administración de cuentas y listados de apoyo (U6–U12). */
+    private static final String[] ADMIN_ENDPOINTS = {
+            API_PREFIX + "/users",
+            API_PREFIX + "/users/**",
+            API_PREFIX + "/coaches",
+            API_PREFIX + "/guardians"
     };
 
     private static final String[] PUBLIC_ENDPOINTS = {
@@ -65,6 +85,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(OWN_ACCOUNT_ENDPOINTS).authenticated()
+                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
