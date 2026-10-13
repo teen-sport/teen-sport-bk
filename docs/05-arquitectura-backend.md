@@ -37,7 +37,7 @@ Los nombres son una propuesta de paquetes; respetar la estructura ya creada si e
 ## Persistencia
 La base de datos relacional es el almacén principal: PostgreSQL 18.6. Por ahora no se usan migraciones versionadas; el esquema se deriva de las entidades JPA, que mapean el MER. Utilizar Spring Data JPA/ORM para operaciones ordinarias y SQL nativo selectivo cuando exista justificación por complejidad o rendimiento. La SQL debe quedar encapsulada en repositorios.
 
-Configuración de la conexión (`application.properties`): `DB_URL` (por defecto `jdbc:postgresql://localhost:5432/teen_sport`), `DB_USERNAME` (por defecto `teen_sport`) y `DB_PASSWORD` (obligatoria, sin valor por defecto). `spring.jpa.hibernate.ddl-auto=update` crea y amplía tablas a partir de las entidades, sin eliminar columnas ni datos; `spring.jpa.open-in-view=false` obliga a resolver las cargas dentro de los servicios.
+Configuración de la conexión (`application.properties`): `DB_URL` (por defecto `jdbc:postgresql://localhost:5432/teen_sport`), `DB_USERNAME` (por defecto `teen_sport`) y `DB_PASSWORD` (obligatoria, sin valor por defecto). `spring.jpa.hibernate.ddl-auto` se toma de `DB_DDL_AUTO`, con valor por defecto `validate`: la aplicación nunca crea ni modifica la estructura de la base, solo consulta, inserta, actualiza y elimina datos, y si faltan tablas o columnas de las entidades no arranca e indica cuáles. `DB_DDL_AUTO=update` (crear y ampliar tablas sin eliminar columnas ni datos) se reserva para una base local de desarrollo; las pruebas automatizadas lo fijan por su cuenta porque su contenedor arranca vacío. Como garantía adicional, el usuario de la aplicación en bases compartidas debería tener solo permisos `SELECT`, `INSERT`, `UPDATE` y `DELETE`; `spring.jpa.open-in-view=false` obliga a resolver las cargas dentro de los servicios.
 
 Variables locales en un archivo `.env`: `application.properties` importa `optional:file:.env[.properties]` desde el directorio de trabajo (la raíz del proyecto al usar `gradlew bootRun`). Para usarlo, copiar `.env.example` como `.env` y completar los valores. El archivo `.env` está en `.gitignore` y nunca se versiona; se lee como archivo de propiedades (`CLAVE=valor`, sin `export` ni comillas). Las variables de entorno del sistema tienen prioridad sobre el `.env`, y si el archivo no existe la aplicación usa solo las variables del sistema.
 
@@ -45,6 +45,7 @@ Variables de entorno de seguridad:
 
 | Variable | Obligatoria | Uso |
 |---|---|---|
+| `DB_DDL_AUTO` | No (`validate`) | `validate` no modifica el esquema (bases compartidas o remotas); `update` lo crea y amplía (solo base local). |
 | `JWT_SECRET` | Sí | Secreto HS256 de los JWT, mínimo 32 bytes. Sin él la aplicación no arranca. |
 | `JWT_EXPIRATION_SECONDS` | No (3600) | Vigencia de los tokens. |
 | `CORS_ALLOWED_ORIGINS` | No (`http://localhost:4200`) | Orígenes del frontend separados por comas; no admite comodines. |
