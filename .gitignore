@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/docs/prompts/*
