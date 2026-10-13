@@ -1,5 +1,6 @@
 package com.uniquindio.teen_sport.security;
 
+import com.uniquindio.teen_sport.exception.SecurityMessages;
 import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.support.IntegrationTest;
 import java.time.Instant;
@@ -44,7 +45,7 @@ class SecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
                 .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"))
-                .andExpect(jsonPath("$.message").value(SecurityErrorHandler.UNAUTHENTICATED_MESSAGE))
+                .andExpect(jsonPath("$.message").value(SecurityMessages.UNAUTHENTICATED))
                 .andExpect(jsonPath("$.path").value(PROTECTED));
     }
 
@@ -74,7 +75,7 @@ class SecurityIntegrationTest {
         withToken(expired)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("TOKEN_EXPIRED"))
-                .andExpect(jsonPath("$.message").value(SecurityErrorHandler.TOKEN_EXPIRED_MESSAGE));
+                .andExpect(jsonPath("$.message").value(SecurityMessages.TOKEN_EXPIRED));
     }
 
     @Test

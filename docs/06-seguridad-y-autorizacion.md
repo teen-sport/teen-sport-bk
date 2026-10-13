@@ -61,6 +61,7 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - `security/SecurityErrorHandler`: `401 TOKEN_EXPIRED` para token vencido, `401 UNAUTHENTICATED` para token ausente o inválido, `403 ACCESS_DENIED` por rol; mismo formato `Error`.
 - El token no contiene datos personales: solo `sub`, `role`, `guardianId` o `coachId`, `iat` y `exp`. `sub` debe ser un id numérico.
 - `security/CurrentUserService` (HU29) es la única fuente de identidad de las operaciones propias: lee el JWT validado y nunca usa ids, roles o correos enviados por el cliente.
+- Autorización por rol (HU30): las rutas exclusivas de `ADMIN` (`/users` salvo `/users/me` y el registro, `/coaches`, `/guardians`) se restringen en `SecurityConfig`, de modo que un usuario sin permiso recibe `403` antes de que se lea o valide el cuerpo. Los controladores repiten la regla con `@PreAuthorize` como segunda barrera, y `GlobalExceptionHandler` traduce ese rechazo a `403 ACCESS_DENIED`.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.

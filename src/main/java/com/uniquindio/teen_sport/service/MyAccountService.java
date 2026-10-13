@@ -6,11 +6,10 @@ import com.uniquindio.teen_sport.dto.UserProfile;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
+import com.uniquindio.teen_sport.exception.SecurityMessages;
 import com.uniquindio.teen_sport.mapper.UserProfileMapper;
 import com.uniquindio.teen_sport.repository.UserRepository;
-import com.uniquindio.teen_sport.security.SecurityErrorHandler;
 import com.uniquindio.teen_sport.validation.PasswordPolicy;
-import com.uniquindio.teen_sport.validation.TextNormalizer;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,13 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Casos de uso de la cuenta propia: consultar el perfil (U3), actualizarlo (U4) y cambiar la
  * contraseña (U5).
  *
- * <p>Reciben el id del usuario tomado del JWT, nunca del cuerpo de la solicitud. Reglas de U4:</p>
- * <ul>
- *   <li>Correo, documento y rol no se modifican.</li>
- *   <li>Se aplican solo los campos del rol del usuario: {@code homeAddress} para acudientes y
- *       {@code specialty}/{@code yearsOfExperience} para entrenadores; los de otro rol se ignoran.</li>
- *   <li>Es un reemplazo completo ({@code PUT}): un campo opcional del rol que no se envía queda vacío.</li>
- * </ul>
+ * <p>Reciben el id del usuario tomado del JWT, nunca del cuerpo de la solicitud. Las reglas de
+ * edición de U4 están en {@link ProfileEditor}.</p>
  */
 @Service
 public class MyAccountService {
@@ -35,6 +29,7 @@ public class MyAccountService {
 
     private final UserRepository userRepository;
     private final RoleProfileResolver roleProfileResolver;
+    private final ProfileEditor profileEditor;
     private final UserProfileMapper profileMapper;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicy passwordPolicy;
@@ -42,15 +37,17 @@ public class MyAccountService {
     /**
      * @param userRepository      cuentas
      * @param roleProfileResolver perfil de acudiente o entrenador de cada cuenta
+     * @param profileEditor       aplicación de los datos editables del perfil
      * @param profileMapper       salida pública del perfil
      * @param passwordEncoder     hash y verificación BCrypt
      * @param passwordPolicy      fortaleza de contraseñas
      */
     public MyAccountService(UserRepository userRepository, RoleProfileResolver roleProfileResolver,
-                            UserProfileMapper profileMapper, PasswordEncoder passwordEncoder,
-                            PasswordPolicy passwordPolicy) {
+                            ProfileEditor profileEditor, UserProfileMapper profileMapper,
+                            PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy) {
         this.userRepository = userRepository;
         this.roleProfileResolver = roleProfileResolver;
+        this.profileEditor = profileEditor;
         this.profileMapper = profileMapper;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicy = passwordPolicy;
@@ -80,18 +77,8 @@ public class MyAccountService {
     @Transactional
     public UserProfile updateProfile(Integer userId, UpdateOwnProfileRequest request) {
         User user = findAccount(userId);
-        user.setFirstName(request.firstNames().trim());
-        user.setLastName(request.lastNames().trim());
-        user.setPhone(request.phone().trim());
-
         RoleProfileResolver.RoleProfiles profiles = roleProfileResolver.resolve(user);
-        if (profiles.guardian() != null) {
-            profiles.guardian().setAddress(TextNormalizer.trimToNull(request.homeAddress()));
-        }
-        if (profiles.coach() != null) {
-            profiles.coach().setSpecialty(TextNormalizer.trimToNull(request.specialty()));
-            profiles.coach().setYearsExperience(request.yearsOfExperience());
-        }
+        profileEditor.apply(user, profiles, request);
         return toProfile(user, profiles);
     }
 
@@ -123,7 +110,7 @@ public class MyAccountService {
     private User findAccount(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, HttpStatus.UNAUTHORIZED,
-                        SecurityErrorHandler.UNAUTHENTICATED_MESSAGE));
+                        SecurityMessages.UNAUTHENTICATED));
     }
 
     private UserProfile toProfile(User user, RoleProfileResolver.RoleProfiles profiles) {

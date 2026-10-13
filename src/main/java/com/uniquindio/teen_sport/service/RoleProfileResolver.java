@@ -5,6 +5,11 @@ import com.uniquindio.teen_sport.entity.Guardian;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.repository.CoachRepository;
 import com.uniquindio.teen_sport.repository.GuardianRepository;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -38,6 +43,23 @@ public class RoleProfileResolver {
             case COACH -> new RoleProfiles(null, coachRepository.findByUserId(user.getId()).orElse(null));
             case ADMIN -> new RoleProfiles(null, null);
         };
+    }
+
+    /**
+     * Versión en bloque de {@link #resolve(User)} para listados: dos consultas en total, en lugar de
+     * una por cuenta.
+     *
+     * @param users cuentas con su rol cargado
+     * @return perfiles indexados por id de cuenta
+     */
+    public Map<Integer, RoleProfiles> resolveAll(Collection<User> users) {
+        List<Integer> userIds = users.stream().map(User::getId).toList();
+        Map<Integer, Guardian> guardians = guardianRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(guardian -> guardian.getUser().getId(), Function.identity()));
+        Map<Integer, Coach> coaches = coachRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(coach -> coach.getUser().getId(), Function.identity()));
+        return users.stream().collect(Collectors.toMap(User::getId,
+                user -> new RoleProfiles(guardians.get(user.getId()), coaches.get(user.getId()))));
     }
 
     /**

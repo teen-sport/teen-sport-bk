@@ -24,5 +24,5 @@ public record UpdateOwnProfileRequest(
         @NotBlank @Size(max = 20) String phone,
         @Size(max = 255) String homeAddress,
         @Size(max = 100) String specialty,
-        @Min(0) Integer yearsOfExperience) {
+        @Min(0) Integer yearsOfExperience) implements EditableProfile {
 }
