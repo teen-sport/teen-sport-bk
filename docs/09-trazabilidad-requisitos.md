@@ -29,8 +29,8 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU32 Gestión de disciplinas | H1–H5 | Implementada (pendiente de revisión); `DISCIPLINE_HAS_ACTIVE_GROUPS` pendiente de la Fase 3 | `DisciplineServiceTest`, `DisciplineIntegrationTest` | RNF-13, RNF-15 |
-| HU34 Registro y gestión de deportistas | E1–E4 | Pendiente | — | RNF-15 |
+| HU32 Gestión de disciplinas | H1–H5 | Integrada en `development` (PR #17); `DISCIPLINE_HAS_ACTIVE_GROUPS` pendiente de la Fase 3 | `DisciplineServiceTest`, `DisciplineIntegrationTest` | RNF-13, RNF-15 |
+| HU34 Registro y gestión de deportistas | E1–E4 | Implementada (pendiente de revisión); `hasActiveEnrollment` se conecta en la Fase 4 | `AthleteServiceTest`, `AthleteAgePolicyTest`, `AcademyCalendarTest`, `AthleteIntegrationTest` | RNF-13, RNF-15 |
 
 ## Requisitos no funcionales
 Relacionar cada prueba con RNF-04 a RNF-17 cuando corresponda. Los RNF-01 a RNF-03 deben transcribirse desde el plan de calidad original para preservar sus métricas exactas.

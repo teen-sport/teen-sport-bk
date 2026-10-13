@@ -40,12 +40,24 @@ public class AuthTestClient {
      * @throws Exception si la solicitud falla
      */
     public String newGuardianToken() throws Exception {
+        return newGuardian().token();
+    }
+
+    /**
+     * Registra un acudiente nuevo e inicia sesión con él.
+     *
+     * @return token e ids del acudiente
+     * @throws Exception si la solicitud falla
+     */
+    public TestGuardian newGuardian() throws Exception {
         String email = TestAccounts.uniqueEmail();
-        mockMvc.perform(post("/api/v1/users/register").contentType(MediaType.APPLICATION_JSON)
+        String profile = mockMvc.perform(post("/api/v1/users/register").contentType(MediaType.APPLICATION_JSON)
                         .content(TestAccounts.registrationJson(email, TestAccounts.uniqueIdNumber(),
                                 TestAccounts.VALID_PASSWORD)))
-                .andExpect(status().isCreated());
-        return login(email, TestAccounts.VALID_PASSWORD);
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return new TestGuardian(login(email, TestAccounts.VALID_PASSWORD), JsonPath.read(profile, "$.id"),
+                JsonPath.read(profile, "$.guardian.id"));
     }
 
     /**
@@ -72,6 +84,16 @@ public class AuthTestClient {
      */
     public static String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    /**
+     * Acudiente creado para una prueba.
+     *
+     * @param token      JWT del acudiente
+     * @param userId     id de su cuenta
+     * @param guardianId id de su perfil de acudiente
+     */
+    public record TestGuardian(String token, int userId, int guardianId) {
     }
 
     private String login(String email, String password) throws Exception {

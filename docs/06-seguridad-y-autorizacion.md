@@ -63,6 +63,7 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - `security/CurrentUserService` (HU29) es la única fuente de identidad de las operaciones propias: lee el JWT validado y nunca usa ids, roles o correos enviados por el cliente.
 - Autorización por rol (HU30): las rutas exclusivas de `ADMIN` (`/users` salvo `/users/me` y el registro, `/coaches`, `/guardians`) se restringen en `SecurityConfig`, de modo que un usuario sin permiso recibe `403` antes de que se lea o valide el cuerpo. Los controladores repiten la regla con `@PreAuthorize` como segunda barrera, y `GlobalExceptionHandler` traduce ese rechazo a `403 ACCESS_DENIED`.
 - Disciplinas (HU32): `GET /disciplines/**` para cualquier rol autenticado; `POST`, `PUT` y `PATCH` solo `ADMIN`, restringidos en el filtro y con `@PreAuthorize`.
+- Deportistas (HU34): `/athletes/**` solo `ADMIN` y `GUARDIAN` (filtro y `@PreAuthorize`). La propiedad se comprueba en `service/AthleteAccessPolicy` con el `guardianId` del token: un acudiente nunca ve ni modifica deportistas ajenos, y el `guardianId` que envíe se ignora. Las respuestas solo incluyen los campos del contrato y los logs no registran datos de los menores.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.
