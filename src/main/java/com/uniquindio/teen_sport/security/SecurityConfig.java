@@ -67,6 +67,12 @@ public class SecurityConfig {
             API_PREFIX + "/disciplines/**"
     };
 
+    /** Deportistas (E1–E4): administradores y acudientes; la propiedad se comprueba en el servicio. */
+    private static final String[] ATHLETE_ENDPOINTS = {
+            API_PREFIX + "/athletes",
+            API_PREFIX + "/athletes/**"
+    };
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/actuator/health", "/actuator/health/**",
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
@@ -95,6 +101,7 @@ public class SecurityConfig {
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
                         .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))

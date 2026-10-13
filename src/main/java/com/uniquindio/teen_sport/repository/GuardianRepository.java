@@ -23,6 +23,13 @@ public interface GuardianRepository extends JpaRepository<Guardian, Integer>, Jp
     List<Guardian> findByUserIdIn(Collection<Integer> userIds);
 
     /**
+     * @param id id del perfil de acudiente
+     * @return el acudiente con su cuenta cargada, si existe
+     */
+    @EntityGraph(attributePaths = "user")
+    Optional<Guardian> findWithUserById(Integer id);
+
+    /**
      * Página de acudientes filtrados, con su cuenta cargada en la misma consulta.
      *
      * @param specification filtros

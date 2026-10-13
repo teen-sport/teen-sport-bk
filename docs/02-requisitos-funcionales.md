@@ -10,7 +10,7 @@
 - Los roles `COACH` y `ADMIN` los crea un administrador; el registro público está limitado a acudientes.
 
 ## Deportistas
-- `E1–E4`: registrar, listar, consultar y actualizar deportistas.
+- `E1–E4`: registrar, listar, consultar y actualizar deportistas. La edad se calcula con la fecha local de la academia (`America/Bogota`); al editar solo se valida si cambia la fecha de nacimiento. Un administrador solo puede registrar deportistas para un acudiente activo.
 - La edad debe estar entre 12 y 17 años en la fecha de la solicitud, según contrato.
 - Los acudientes solo pueden gestionar deportistas asociados a su cuenta; el administrador puede operar en nombre de un acudiente con las reglas documentadas.
 - No existe DELETE de deportistas en el contrato; la salida de la academia se representa mediante la gestión de la matrícula.

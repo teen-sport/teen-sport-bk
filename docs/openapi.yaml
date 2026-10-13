@@ -359,6 +359,9 @@ paths:
       description: |
         **Roles:** GUARDIAN (own), ADMIN. `guardianId` is only sent by an admin; for a guardian it comes from the token.
         Age must be 12 to 17 on the request date, and the guardian must have accepted the data policy.
+        The request date is the academy's local date (`America/Bogota` by default). For an admin `guardianId` is
+        required and must be an active guardian; otherwise 400 `VALIDATION_ERROR` on `guardianId`.
+        `idNumber` is unique among athletes (409 `DUPLICATE_ATHLETE`).
       x-endpoint-id: E1
       x-roles: [GUARDIAN, ADMIN]
       x-error-codes: [VALIDATION_ERROR, AGE_OUT_OF_RANGE, DATA_POLICY_NOT_ACCEPTED, DUPLICATE_ATHLETE]
@@ -382,7 +385,9 @@ paths:
       tags: [Athletes]
       operationId: listAthletes
       summary: List athletes (paginated)
-      description: '**Roles:** ADMIN (all), GUARDIAN (only own, automatic).'
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (only own, automatic; `guardianId` is ignored).
+        Ordered by last names and first names. `q` matches first names, last names, full name or ID number.
       x-endpoint-id: E2
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: []
@@ -431,6 +436,8 @@ paths:
       summary: Update an athlete
       description: |
         **Roles:** ADMIN, GUARDIAN (own). There is no DELETE: leaving the academy means cancelling the enrollment.
+        The guardian never changes. The age range is checked only when `birthDate` changes, so an athlete who has
+        turned 18 can still be corrected.
       x-endpoint-id: E4
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, AGE_OUT_OF_RANGE, DUPLICATE_ATHLETE]
