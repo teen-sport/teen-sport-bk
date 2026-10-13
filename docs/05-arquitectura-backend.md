@@ -39,6 +39,8 @@ La base de datos relacional es el almacén principal: PostgreSQL 18.6. Por ahora
 
 Configuración de la conexión (`application.properties`): `DB_URL` (por defecto `jdbc:postgresql://localhost:5432/teen_sport`), `DB_USERNAME` (por defecto `teen_sport`) y `DB_PASSWORD` (obligatoria, sin valor por defecto). `spring.jpa.hibernate.ddl-auto=update` crea y amplía tablas a partir de las entidades, sin eliminar columnas ni datos; `spring.jpa.open-in-view=false` obliga a resolver las cargas dentro de los servicios.
 
+Variables locales en un archivo `.env`: `application.properties` importa `optional:file:.env[.properties]` desde el directorio de trabajo (la raíz del proyecto al usar `gradlew bootRun`). Para usarlo, copiar `.env.example` como `.env` y completar los valores. El archivo `.env` está en `.gitignore` y nunca se versiona; se lee como archivo de propiedades (`CLAVE=valor`, sin `export` ni comillas). Las variables de entorno del sistema tienen prioridad sobre el `.env`, y si el archivo no existe la aplicación usa solo las variables del sistema.
+
 Variables de entorno de seguridad:
 
 | Variable | Obligatoria | Uso |
