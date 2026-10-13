@@ -8,6 +8,7 @@ import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.repository.DisciplineRepository;
+import com.uniquindio.teen_sport.repository.GroupRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +33,8 @@ class DisciplineServiceTest {
     private static final BigDecimal FEE = new BigDecimal("120000.00");
 
     private final DisciplineRepository repository = mock(DisciplineRepository.class);
-    private final DisciplineService service = new DisciplineService(repository);
+    private final GroupRepository groupRepository = mock(GroupRepository.class);
+    private final DisciplineService service = new DisciplineService(repository, groupRepository);
 
     @BeforeEach
     void setUp() {
@@ -101,6 +103,20 @@ class DisciplineServiceTest {
 
         assertThat(service.changeStatus(3, EntityStatus.INACTIVE).status()).isEqualTo(EntityStatus.INACTIVE);
         assertThat(discipline.getStatus()).isEqualTo(EntityStatus.INACTIVE);
+    }
+
+    @Test
+    void disciplineWithActiveGroupsCannotBeDeactivatedButCanBeActivated() {
+        Discipline discipline = existing(3, "Fútbol");
+        when(groupRepository.existsByDisciplineIdAndStatus(3, EntityStatus.ACTIVE)).thenReturn(true);
+
+        BusinessException ex = catchThrowableOfType(BusinessException.class,
+                () -> service.changeStatus(3, EntityStatus.INACTIVE));
+
+        assertThat(ex.getCode()).isEqualTo(ErrorCode.DISCIPLINE_HAS_ACTIVE_GROUPS);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(discipline.getStatus()).isEqualTo(EntityStatus.ACTIVE);
+        assertThat(service.changeStatus(3, EntityStatus.ACTIVE).status()).isEqualTo(EntityStatus.ACTIVE);
     }
 
     @Test

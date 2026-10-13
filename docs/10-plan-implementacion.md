@@ -30,7 +30,7 @@ Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3
 - Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.
 - HU29 integrada en `development` (PR #12): U3 `GET /users/me`, U4 `PUT /users/me` (reemplazo completo; campos de otro rol ignorados), U5 `PUT /users/me/password`; identidad tomada del JWT (`CurrentUserService`); `RoleProfileResolver` compartido con el login. `./gradlew check`: 109 pruebas en verde.
 - HU30 implementada en `feature/HU30/user-administration` (pendiente de revisión y PR): U6 listado paginado con filtros y búsqueda, U7 detalle, U8 creación de `ADMIN`/`COACH`, U9 edición, U10 activación/desactivación, U11 entrenadores, U12 acudientes; autorización `ADMIN` en el filtro y con `@PreAuthorize`; carga en bloque de perfiles para evitar N+1; `AccountCreator` y `ProfileEditor` compartidos con U2, U4 y el administrador inicial. `./gradlew check`: 147 pruebas en verde.
-- Pendiente para la Fase 3: `COACH_HAS_ACTIVE_GROUPS` en U10.
+- `COACH_HAS_ACTIVE_GROUPS` en U10: cerrado en HU33.
 
 ## Fase 2 — Deportistas y catálogos
 - Perfiles de deportistas.
@@ -43,13 +43,20 @@ Se desarrolla por historias de usuario: HU32 (H1–H5, disciplinas) y HU34 (E1�
 - HU32 integrada en `development` (PR #17): entidad `disciplines`, H1–H5, nombre único sin distinguir mayúsculas, mensualidad `DECIMAL(10,2)` > 0, listado de solo activas para no administradores, escritura solo `ADMIN`. `./gradlew check`: 164 pruebas en verde.
 - Decisiones para HU34: edad calculada con la zona de la academia (`America/Bogota`, configurable); en E4 la edad solo se valida si cambia `birthDate`; un administrador no puede registrar deportistas para un acudiente inactivo.
 - HU34 implementada en `feature/HU34/athlete-management` (pendiente de revisión y PR): entidad `athletes`; E1–E4 con propiedad por acudiente (`AthleteAccessPolicy`), edad 12–17 con la fecha local de la academia (`AcademyCalendar`, `APP_TIME_ZONE`), documento único, acudiente activo obligatorio para el administrador. `./gradlew check`: 196 pruebas en verde.
-- Pendiente para la Fase 3: `DISCIPLINE_HAS_ACTIVE_GROUPS` en H5.
+- `DISCIPLINE_HAS_ACTIVE_GROUPS` en H5: cerrado en HU33.
 - Pendiente para la Fase 4: calcular `hasActiveEnrollment` de los deportistas con las matrículas.
 
 ## Fase 3 — Grupos y horarios
 - Grupos y asignación de entrenador.
 - Capacidad y validación de entrenador/disciplina activos.
 - Horarios semanales.
+
+Se desarrolla en una sola historia de usuario: HU33 (H6–H14).
+
+**Estado (2026-10-13): implementada, pendiente de revisión.**
+- HU33 en `feature/HU33/group-schedule-management`: entidades `groups` (nombre físico decidido el 2026-10-13) y `schedules`; H6–H14; propiedad de grupos para entrenadores (`GroupAccessPolicy`); detección de cruces (`ScheduleConflictChecker`, solo grupos activos, franjas contiguas permitidas) con bloqueo pesimista del grupo y del entrenador; reactivar un grupo (H10) comprueba cruces con los demás grupos activos del entrenador (`COACH_SCHEDULE_CONFLICT`, añadido al contrato); cierre de `COACH_HAS_ACTIVE_GROUPS` (U10) y `DISCIPLINE_HAS_ACTIVE_GROUPS` (H5). Mockito pasa a cargarse como `-javaagent`. `./gradlew check`: 245 pruebas en verde.
+- Pendiente para la Fase 4: `CAPACITY_BELOW_OCCUPIED` (H9) y matrículas vigentes en `GROUP_HAS_ACTIVITY` (H10).
+- Pendiente para la Fase 6: sesiones futuras en `GROUP_HAS_ACTIVITY` (H10) y traspaso de sesiones futuras al nuevo entrenador (H11).
 
 ## Fase 4 — Matrículas y disponibilidad
 - Disponibilidad por periodo.

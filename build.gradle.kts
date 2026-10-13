@@ -19,6 +19,10 @@ repositories {
 	mavenCentral()
 }
 
+// Mockito se carga como agente de la JVM de pruebas (recomendación de Mockito para JDK 21+):
+// evita que intente adjuntarse en caliente con un proceso externo, que puede fallar o bloquearse.
+val mockitoAgent: Configuration by configurations.creating
+
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -34,10 +38,12 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	mockitoAgent("org.mockito:mockito-core") { isTransitive = false }
 }
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	jvmArgs("-javaagent:${mockitoAgent.asPath}")
 	finalizedBy(tasks.jacocoTestReport)
 }
 
