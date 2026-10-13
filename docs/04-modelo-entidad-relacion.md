@@ -3,7 +3,7 @@
 ## Fuente
 `docs/MER.pdf`, diagrama generado con dbdiagram.io. Este documento describe las entidades del diagrama y su finalidad. Para nombres, tipos, nulabilidad, claves y restricciones exactas, el diagrama es la referencia normativa y las entidades JPA deben seguirlo al pie de la letra. No inferir una restricción `UNIQUE`, `NOT NULL` o `ON DELETE` si no aparece explícitamente.
 
-No se usan migraciones versionadas: el esquema se deriva de las entidades JPA, que mapean este modelo.
+No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por defecto la aplicación solo valida que el esquema exista y coincida con las entidades (`ddl-auto=validate`) y no crea ni modifica tablas; la estructura de las bases compartidas se crea fuera de la aplicación. Solo en una base local de desarrollo puede generarse a partir de las entidades (`DB_DDL_AUTO=update`).
 
 ## Entidades identificadas
 

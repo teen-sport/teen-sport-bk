@@ -13,5 +13,5 @@
 - Utilizar transacciones en operaciones que deben completarse de forma atómica.
 - Validar cupos y restricciones de matrícula frente a operaciones concurrentes.
 - Evitar actualizaciones destructivas de datos sin autorización explícita.
-- Por ahora no se usan migraciones versionadas: el esquema se deriva de las entidades JPA, que deben corresponder al MER.
+- Por ahora no se usan migraciones versionadas. Las entidades JPA deben corresponder al MER; por defecto la aplicación solo valida el esquema (`ddl-auto=validate`) y no crea ni modifica tablas. `DB_DDL_AUTO=update` es solo para bases locales de desarrollo.
 - Probar las restricciones de integridad y los escenarios de concurrencia relevantes.
