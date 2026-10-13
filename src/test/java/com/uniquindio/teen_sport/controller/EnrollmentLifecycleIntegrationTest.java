@@ -193,7 +193,8 @@ class EnrollmentLifecycleIntegrationTest {
                 () -> statusOf(send(patch(ENROLLMENTS + moving + "/group"), adminToken, groupJson(target))),
                 () -> statusOf(academy.requestEnrollment(token, athleteId, target, CURRENT.toString())));
 
-        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+        // Gana el cambio de grupo (200) o la solicitud nueva (201); la otra recibe 409.
+        assertThat(statuses).containsOnlyOnce(409).containsAnyOf(200, 201).hasSize(2);
         assertThat(enrollmentRepository.countByGroupIdAndStatusIn(target, EnrollmentStatus.IN_FORCE)).isEqualTo(1);
     }
 
