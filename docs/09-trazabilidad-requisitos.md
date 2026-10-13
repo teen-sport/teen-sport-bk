@@ -30,13 +30,20 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
 | HU32 Gestión de disciplinas | H1–H5 | Integrada en `development` (PR #17); `DISCIPLINE_HAS_ACTIVE_GROUPS` pendiente de la Fase 3 | `DisciplineServiceTest`, `DisciplineIntegrationTest` | RNF-13, RNF-15 |
-| HU34 Registro y gestión de deportistas | E1–E4 | Integrada en `development` (PR #18); `hasActiveEnrollment` se conecta en la Fase 4 | `AthleteServiceTest`, `AthleteAgePolicyTest`, `AcademyCalendarTest`, `AthleteIntegrationTest` | RNF-13, RNF-15 |
+| HU34 Registro y gestión de deportistas | E1–E4 | Integrada en `development` (PR #18); `hasActiveEnrollment` real desde HU35 | `AthleteServiceTest`, `AthleteAgePolicyTest`, `AcademyCalendarTest`, `AthleteIntegrationTest` | RNF-13, RNF-15 |
 
 ## Historias de usuario de la Fase 3
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU33 Gestión de grupos, horario y entrenador | H6–H14; cierra U10 `COACH_HAS_ACTIVE_GROUPS` y H5 `DISCIPLINE_HAS_ACTIVE_GROUPS` | Implementada (pendiente de revisión); `CAPACITY_BELOW_OCCUPIED`, `GROUP_HAS_ACTIVITY` y el traspaso de sesiones en H11 dependen de las Fases 4 y 6 | `TimeSlotTest`, `GroupServiceTest`, `ScheduleServiceTest`, `GroupIntegrationTest`, `ScheduleIntegrationTest` (incluye concurrencia), `UserAdministrationServiceTest`, `DisciplineServiceTest` | RNF-11, RNF-13, RNF-15 |
+| HU33 Gestión de grupos, horario y entrenador | H6–H14; cierra U10 `COACH_HAS_ACTIVE_GROUPS` y H5 `DISCIPLINE_HAS_ACTIVE_GROUPS` | Integrada en `development` (PR #19); `CAPACITY_BELOW_OCCUPIED` y `GROUP_HAS_ACTIVITY` por matrículas se cierran en HU35; las sesiones (H10, H11) dependen de la Fase 6 | `TimeSlotTest`, `GroupServiceTest`, `ScheduleServiceTest`, `GroupIntegrationTest`, `ScheduleIntegrationTest` (incluye concurrencia), `UserAdministrationServiceTest`, `DisciplineServiceTest` | RNF-11, RNF-13, RNF-15 |
+
+## Historias de usuario de la Fase 4
+
+| HU | IDs API | Estado | Pruebas automatizadas | RNF |
+|---|---|---|---|---|
+| HU35 Solicitud de matrícula | E5–E8; cierra H9 `CAPACITY_BELOW_OCCUPIED`, H10 `GROUP_HAS_ACTIVITY` (matrículas) y `hasActiveEnrollment` (E1–E4) | Implementada (pendiente de revisión); correo `NO_SPOTS_AVAILABLE` pendiente de la Fase 7 | `EnrollmentServiceTest`, `EnrollmentQueryServiceTest`, `AvailabilityServiceTest`, `SpotCounterTest`, `PeriodPolicyTest`, `GroupServiceTest`, `AthleteServiceTest`, `EnrollmentIntegrationTest` (incluye concurrencia), `AvailabilityIntegrationTest` | RNF-11, RNF-13, RNF-15 |
+| HU37 Revisión y ciclo de la matrícula | E12–E15 | Pendiente | — | RNF-11, RNF-13 |
 
 ## Requisitos no funcionales
 Relacionar cada prueba con RNF-04 a RNF-17 cuando corresponda. Los RNF-01 a RNF-03 deben transcribirse desde el plan de calidad original para preservar sus métricas exactas.

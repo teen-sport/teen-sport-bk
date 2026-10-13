@@ -1,7 +1,9 @@
 package com.uniquindio.teen_sport.config;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -34,6 +36,20 @@ public class AcademyCalendar {
      */
     public LocalDate today() {
         return LocalDate.ofInstant(clock.instant(), zone);
+    }
+
+    /**
+     * @return el instante actual del reloj de la aplicación, para las marcas de tiempo en UTC
+     */
+    public Instant now() {
+        return clock.instant();
+    }
+
+    /**
+     * @return el mes actual en la zona de la academia
+     */
+    public YearMonth currentPeriod() {
+        return YearMonth.from(today());
     }
 
     /**

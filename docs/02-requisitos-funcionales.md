@@ -18,7 +18,7 @@
 ## Disponibilidad y matrículas
 - `E5`: consultar grupos activos de disciplinas activas y disponibilidad para un periodo.
 - El `period` de una matrícula es su mes de inicio; la matrícula sigue vigente mes a mes hasta ser rechazada o cancelada.
-- Los cupos ocupados de un mes cuentan las matrículas `PENDING_REVIEW` y `ACTIVE` con mes de inicio igual o anterior.
+- Los cupos ocupados de un mes cuentan las matrículas `PENDING_REVIEW` y `ACTIVE` con mes de inicio igual o anterior. Como cada matrícula vigente ocupa cupo en todos los meses siguientes, para reservar (E6) se compara la capacidad con todas las matrículas vigentes del grupo, y E5 informa como disponibles solo los cupos que aún se pueden reservar.
 - `E6`: solicitar matrícula; estado inicial `PENDING_REVIEW`, pago inicial `OVERDUE` y reserva de cupo bajo bloqueo pesimista del grupo.
 - Un deportista no puede tener dos matrículas vigentes (`PENDING_REVIEW` o `ACTIVE`) en la misma disciplina, sin importar grupo ni mes de inicio (`DUPLICATE_ENROLLMENT`); sí en disciplinas distintas.
 - Si no hay cupos, no se crea matrícula, se intenta notificar por correo y se devuelve conflicto.

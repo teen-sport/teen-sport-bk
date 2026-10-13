@@ -5,6 +5,7 @@ import com.uniquindio.teen_sport.dto.GroupResponse;
 import com.uniquindio.teen_sport.dto.UpdateGroupRequest;
 import com.uniquindio.teen_sport.entity.Coach;
 import com.uniquindio.teen_sport.entity.Discipline;
+import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import com.uniquindio.teen_sport.entity.EntityStatus;
 import com.uniquindio.teen_sport.entity.Group;
 import com.uniquindio.teen_sport.entity.Role;
@@ -13,9 +14,9 @@ import com.uniquindio.teen_sport.entity.Schedule;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
-import com.uniquindio.teen_sport.mapper.GroupMapper;
 import com.uniquindio.teen_sport.repository.CoachRepository;
 import com.uniquindio.teen_sport.repository.DisciplineRepository;
+import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.repository.ScheduleRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
@@ -53,12 +54,13 @@ class GroupServiceTest {
     private final ScheduleRepository scheduleRepository = mock(ScheduleRepository.class);
     private final DisciplineRepository disciplineRepository = mock(DisciplineRepository.class);
     private final CoachRepository coachRepository = mock(CoachRepository.class);
+    private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private GroupService service;
 
     @BeforeEach
     void setUp() {
         service = new GroupService(groupRepository, scheduleRepository, disciplineRepository, coachRepository,
-                new GroupAccessPolicy(), new ScheduleConflictChecker(scheduleRepository), new GroupMapper());
+                enrollmentRepository, new GroupAccessPolicy(), new ScheduleConflictChecker(scheduleRepository));
         when(groupRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -143,6 +145,45 @@ class GroupServiceTest {
         assertThat(group.getMaxCapacity()).isEqualTo(12);
         assertThat(failure(() -> service.update(99, new UpdateGroupRequest("A", 5))).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void capacityCannotDropBelowEnrollmentsInForce() {
+        Group group = group(7, coach(10, EntityStatus.ACTIVE));
+        when(enrollmentRepository.countByGroupIdAndStatusIn(7, EnrollmentStatus.IN_FORCE)).thenReturn(5L);
+
+        BusinessException ex = failure(() -> service.update(7, new UpdateGroupRequest("A", 4)));
+
+        assertThat(ex.getCode()).isEqualTo(ErrorCode.CAPACITY_BELOW_OCCUPIED);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(group.getMaxCapacity()).isEqualTo(15);
+        verify(groupRepository).findLockedById(7);
+
+        service.update(7, new UpdateGroupRequest("A", 5));
+        assertThat(group.getMaxCapacity()).isEqualTo(5);
+    }
+
+    @Test
+    void groupWithEnrollmentsInForceCannotBeDeactivated() {
+        Group group = group(7, coach(10, EntityStatus.ACTIVE));
+        when(enrollmentRepository.existsByGroupIdAndStatusIn(7, EnrollmentStatus.IN_FORCE)).thenReturn(true);
+
+        BusinessException ex = failure(() -> service.changeStatus(7, EntityStatus.INACTIVE));
+
+        assertThat(ex.getCode()).isEqualTo(ErrorCode.GROUP_HAS_ACTIVITY);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(group.getStatus()).isEqualTo(EntityStatus.ACTIVE);
+        verify(groupRepository).findLockedById(7);
+    }
+
+    @Test
+    void keepingTheSameStatusChangesNothing() {
+        group(7, coach(10, EntityStatus.ACTIVE));
+
+        assertThat(service.changeStatus(7, EntityStatus.ACTIVE).status()).isEqualTo(EntityStatus.ACTIVE);
+
+        verify(groupRepository, never()).findLockedById(any());
+        verify(enrollmentRepository, never()).existsByGroupIdAndStatusIn(any(), any());
     }
 
     @Test

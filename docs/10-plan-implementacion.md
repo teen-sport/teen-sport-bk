@@ -53,9 +53,9 @@ Se desarrolla por historias de usuario: HU32 (H1–H5, disciplinas) y HU34 (E1�
 
 Se desarrolla en una sola historia de usuario: HU33 (H6–H14).
 
-**Estado (2026-10-13): implementada, pendiente de revisión.**
-- HU33 en `feature/HU33/group-schedule-management`: entidades `groups` (nombre físico decidido el 2026-10-13) y `schedules`; H6–H14; propiedad de grupos para entrenadores (`GroupAccessPolicy`); detección de cruces (`ScheduleConflictChecker`, solo grupos activos, franjas contiguas permitidas) con bloqueo pesimista del grupo y del entrenador; reactivar un grupo (H10) comprueba cruces con los demás grupos activos del entrenador (`COACH_SCHEDULE_CONFLICT`, añadido al contrato); cierre de `COACH_HAS_ACTIVE_GROUPS` (U10) y `DISCIPLINE_HAS_ACTIVE_GROUPS` (H5). Mockito pasa a cargarse como `-javaagent`. `./gradlew check`: 245 pruebas en verde.
-- Pendiente para la Fase 4: `CAPACITY_BELOW_OCCUPIED` (H9) y matrículas vigentes en `GROUP_HAS_ACTIVITY` (H10).
+**Estado (2026-10-13): integrada en `development` (PR #19).**
+- HU33: entidades `groups` (nombre físico decidido el 2026-10-13) y `schedules`; H6–H14; propiedad de grupos para entrenadores (`GroupAccessPolicy`); detección de cruces (`ScheduleConflictChecker`, solo grupos activos, franjas contiguas permitidas) con bloqueo pesimista del grupo y del entrenador; reactivar un grupo (H10) comprueba cruces con los demás grupos activos del entrenador (`COACH_SCHEDULE_CONFLICT`, añadido al contrato); cierre de `COACH_HAS_ACTIVE_GROUPS` (U10) y `DISCIPLINE_HAS_ACTIVE_GROUPS` (H5). Mockito pasa a cargarse como `-javaagent`. `./gradlew check`: 245 pruebas en verde.
+- `CAPACITY_BELOW_OCCUPIED` (H9) y matrículas vigentes en `GROUP_HAS_ACTIVITY` (H10): cerrados en HU35.
 - Pendiente para la Fase 6: sesiones futuras en `GROUP_HAS_ACTIVITY` (H10) y traspaso de sesiones futuras al nuevo entrenador (H11).
 
 ## Fase 4 — Matrículas y disponibilidad
@@ -63,6 +63,18 @@ Se desarrolla en una sola historia de usuario: HU33 (H6–H14).
 - Solicitud de matrícula y control de cupos bajo concurrencia.
 - Confirmación, rechazo, cancelación y cambio de grupo.
 - Pruebas de transacciones y consistencia.
+
+Se desarrolla en dos historias de usuario: HU35 Solicitud de matrícula (E5–E8, más los cierres de H9, H10 y `hasActiveEnrollment`) y HU37 Revisión y ciclo de la matrícula (E12–E15).
+
+Decisiones (2026-10-13):
+- Cupos: una matrícula vigente ocupa cupo desde su mes de inicio en adelante, así que E6, H9 (y E12/E15 en HU37) validan contra todas las matrículas vigentes del grupo. En E5, `occupiedSpots` cuenta las que empezaron en el periodo o antes y `availableSpots` es la capacidad menos todas las vigentes (mínimo 0).
+- Filtro `period` de E7: matrículas vigentes en ese mes (inicio igual o anterior y, sin filtro de estado, `PENDING_REVIEW` o `ACTIVE`).
+- El motivo opcional de E14 se guarda en `review_notes` (HU37).
+- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 7. Pago dentro de E12: pendiente de la Fase 5.
+
+**Estado (2026-10-13): HU35 implementada, pendiente de revisión.**
+- HU35 en `feature/HU35/enrollment-request`: entidad `enrollments` (sin las columnas de soportes documentales); E5 `GET /availability`, E6 `POST /enrollments`, E7 `GET /enrollments`, E8 `GET /enrollments/{id}`; cupos en `SpotCounter` (una consulta agrupada para E5); E6 bloquea el deportista y luego el grupo antes de comprobar duplicado y cupo; H9 `CAPACITY_BELOW_OCCUPIED` y H10 `GROUP_HAS_ACTIVITY` (matrículas) con bloqueo del grupo; `hasActiveEnrollment` real en E1–E4 (en lote en E2). Los mappers de grupos y matrículas pasan a ser funciones estáticas. `./gradlew check`: 287 pruebas en verde.
+- Pendiente: HU37 (E12–E15); correo `NO_SPOTS_AVAILABLE` (Fase 7).
 
 ## Fase 5 — Pagos presenciales
 - Reporte por acudiente.

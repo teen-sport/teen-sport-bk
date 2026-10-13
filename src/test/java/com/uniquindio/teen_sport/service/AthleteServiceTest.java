@@ -6,6 +6,7 @@ import com.uniquindio.teen_sport.dto.CreateAthleteRequest;
 import com.uniquindio.teen_sport.dto.PageResponse;
 import com.uniquindio.teen_sport.dto.UpdateAthleteRequest;
 import com.uniquindio.teen_sport.entity.Athlete;
+import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import com.uniquindio.teen_sport.entity.EntityStatus;
 import com.uniquindio.teen_sport.entity.Guardian;
 import com.uniquindio.teen_sport.entity.Role;
@@ -15,6 +16,7 @@ import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.exception.FieldValidationException;
 import com.uniquindio.teen_sport.repository.AthleteRepository;
+import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GuardianRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
 import java.time.Clock;
@@ -54,12 +56,13 @@ class AthleteServiceTest {
 
     private final AthleteRepository athleteRepository = mock(AthleteRepository.class);
     private final GuardianRepository guardianRepository = mock(GuardianRepository.class);
+    private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private AthleteService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        service = new AthleteService(athleteRepository, guardianRepository, new AthleteAccessPolicy(),
+        service = new AthleteService(athleteRepository, guardianRepository, enrollmentRepository, new AthleteAccessPolicy(),
                 new AcademyCalendar(clock, "America/Bogota"), clock);
         when(athleteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -132,7 +135,7 @@ class AthleteServiceTest {
     void ageUsesTheAcademyDateNotTheUtcDate() {
         // 9 p. m. del 11 de octubre en Bogotá: en UTC ya es 12 de octubre, el cumpleaños 12.
         Clock evening = Clock.fixed(Instant.parse("2026-10-12T02:00:00Z"), ZoneOffset.UTC);
-        AthleteService atNight = new AthleteService(athleteRepository, guardianRepository, new AthleteAccessPolicy(),
+        AthleteService atNight = new AthleteService(athleteRepository, guardianRepository, enrollmentRepository, new AthleteAccessPolicy(),
                 new AcademyCalendar(evening, "America/Bogota"), evening);
         guardian(20, true, EntityStatus.ACTIVE);
 
@@ -204,6 +207,31 @@ class AthleteServiceTest {
 
         assertThat(page.content()).singleElement().satisfies(item -> assertThat(item.age()).isEqualTo(14));
         assertThat(page.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listFlagsAthletesWithEnrollmentsInForceInOneQuery() {
+        Guardian guardian = guardian(20, true, EntityStatus.ACTIVE);
+        Athlete enrolled = existingAthlete(5, guardian, FOURTEEN);
+        Athlete free = existingAthlete(6, guardian, FOURTEEN);
+        when(athleteRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(enrolled, free), PageRequest.of(0, 10), 2));
+        when(enrollmentRepository.findAthleteIdsWithStatus(List.of(5, 6), EnrollmentStatus.IN_FORCE))
+                .thenReturn(List.of(5));
+
+        PageResponse<AthleteResponse> page = service.list(ADMIN, null, null, 0, 10);
+
+        assertThat(page.content()).extracting(AthleteResponse::hasActiveEnrollment).containsExactly(true, false);
+        verify(enrollmentRepository, never()).existsByAthleteIdAndStatusIn(any(), any());
+    }
+
+    @Test
+    void detailReportsEnrollmentInForce() {
+        existingAthlete(5, guardian(20, true, EntityStatus.ACTIVE), FOURTEEN);
+        when(enrollmentRepository.existsByAthleteIdAndStatusIn(5, EnrollmentStatus.IN_FORCE)).thenReturn(true);
+
+        assertThat(service.get(GUARDIAN, 5).hasActiveEnrollment()).isTrue();
     }
 
     private Guardian guardian(int id, boolean acceptedPolicy, EntityStatus status) {

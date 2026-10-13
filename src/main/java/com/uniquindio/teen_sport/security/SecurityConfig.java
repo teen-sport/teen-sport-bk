@@ -73,6 +73,16 @@ public class SecurityConfig {
             API_PREFIX + "/athletes/**"
     };
 
+    /**
+     * Disponibilidad y matrículas (E5–E8): administradores y acudientes; la propiedad se comprueba
+     * en el servicio.
+     */
+    private static final String[] ENROLLMENT_ENDPOINTS = {
+            API_PREFIX + "/availability",
+            API_PREFIX + "/enrollments",
+            API_PREFIX + "/enrollments/**"
+    };
+
     /** Grupos (H6–H12): lectura para administradores y entrenadores; escritura solo {@code ADMIN}. */
     private static final String[] GROUP_ENDPOINTS = {
             API_PREFIX + "/groups",
@@ -114,6 +124,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
                         .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
+                        .requestMatchers(ENROLLMENT_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
                         .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
                         .requestMatchers(GROUP_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(SCHEDULE_ENDPOINTS).hasRole("ADMIN")
