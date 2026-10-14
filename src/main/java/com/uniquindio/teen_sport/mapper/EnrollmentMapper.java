@@ -42,7 +42,7 @@ public final class EnrollmentMapper {
                 enrollment.getReviewNotes(), enrollment.getConfirmedAt());
     }
 
-    private static AthleteRef athlete(Enrollment enrollment) {
+    static AthleteRef athlete(Enrollment enrollment) {
         Athlete athlete = enrollment.getAthlete();
         return new AthleteRef(athlete.getId(), athlete.getFirstName(), athlete.getLastName());
     }
@@ -52,7 +52,7 @@ public final class EnrollmentMapper {
         return new IdName(group.getId(), group.getName());
     }
 
-    private static IdName discipline(Enrollment enrollment) {
+    static IdName discipline(Enrollment enrollment) {
         Discipline discipline = enrollment.getGroup().getDiscipline();
         return new IdName(discipline.getId(), discipline.getName());
     }

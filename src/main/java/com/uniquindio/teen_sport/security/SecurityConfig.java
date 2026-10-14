@@ -84,6 +84,24 @@ public class SecurityConfig {
     };
 
     /**
+     * Registro de pagos y marca de mora (E17, E18): solo {@code ADMIN}. Debe evaluarse antes que
+     * {@link #ENROLLMENT_ENDPOINTS}.
+     */
+    private static final String[] PAYMENT_ADMIN_ENDPOINTS = {
+            API_PREFIX + "/enrollments/*/payments",
+            API_PREFIX + "/enrollments/*/payment-status"
+    };
+
+    /**
+     * Reporte de pago (E16): solo {@code GUARDIAN}, sobre sus matrículas. Debe evaluarse antes que
+     * {@link #ENROLLMENT_ENDPOINTS}.
+     */
+    private static final String PAYMENT_REPORT_ENDPOINT = API_PREFIX + "/enrollments/*/payment-report";
+
+    /** Historial de pagos (E19): administradores y acudientes; la propiedad se aplica en el servicio. */
+    private static final String PAYMENT_HISTORY_ENDPOINT = API_PREFIX + "/payments";
+
+    /**
      * Disponibilidad y matrículas (E5–E8, E14): administradores y acudientes; la propiedad se comprueba
      * en el servicio.
      */
@@ -135,6 +153,9 @@ public class SecurityConfig {
                         .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
                         .requestMatchers(ENROLLMENT_REVIEW_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(PAYMENT_ADMIN_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(PAYMENT_REPORT_ENDPOINT).hasRole("GUARDIAN")
+                        .requestMatchers(PAYMENT_HISTORY_ENDPOINT).hasAnyRole("ADMIN", "GUARDIAN")
                         .requestMatchers(ENROLLMENT_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
                         .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
                         .requestMatchers(GROUP_ENDPOINTS).hasRole("ADMIN")

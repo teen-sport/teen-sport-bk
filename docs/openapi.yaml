@@ -602,13 +602,12 @@ paths:
         **Roles:** ADMIN. Moves to `ACTIVE`, sets `confirmedAt`, and sends `ENROLLMENT_CONFIRMED` after commit (not awaited, RNF-04).
         `groupId` (optional) assigns another group of the same discipline; `payment` (optional, same body as E17) registers the payment
         in the same call, under the same rules as E17, and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
-        Until payments exist (phase 5) `payment` is not read and the enrollment always stays `OVERDUE`; the e-mail is sent once the
-        mail adapter exists (phase 7). Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
+        If the payment breaks a rule nothing is confirmed. The e-mail is sent once the mail adapter exists (phase 7). Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
         the current group must still be active (422 `GROUP_INACTIVE`); another group must be of the same discipline, active and with a
         free spot.
       x-endpoint-id: E12
       x-roles: [ADMIN]
-      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, INSUFFICIENT_AMOUNT, FUTURE_DATE]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
       requestBody:
         required: false
         content:
@@ -728,6 +727,8 @@ paths:
         **Roles:** GUARDIAN (own). Only sets `paymentReported=true` so the admin can find it. It does NOT change `paymentStatus`:
         only the admin can, through E17 or E12. Returns 409 `PAYMENT_ALREADY_REGISTERED` when the enrollment already has a payment
         whose `paymentDate` falls in the month of the reported `paymentDate` (or the current month when it is omitted).
+        The reported `paymentDate` is only used for that check; the enrollment stores the moment of the report and the `notes`
+        (a new report replaces the previous note). Only while the enrollment is `PENDING_REVIEW` or `ACTIVE` (409 `INVALID_STATE`).
       x-endpoint-id: E16
       x-roles: [GUARDIAN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED]
@@ -759,7 +760,8 @@ paths:
         `amountPaid` must be at least the discipline `monthlyFee`. Only while the enrollment is `PENDING_REVIEW` or `ACTIVE`.
         An enrollment can have several payments, at most one per calendar month: the month a payment covers is the month of its
         `paymentDate`, and the payment with the most recent `paymentDate` is the latest one. A second payment whose `paymentDate`
-        falls in a month that already has a payment returns 409 `PAYMENT_ALREADY_REGISTERED`.
+        falls in a month that already has a payment returns 409 `PAYMENT_ALREADY_REGISTERED`. `paymentDate` cannot be after today in
+        the academy time zone (422 `FUTURE_DATE`); it may be before the enrollment start month. `registeredBy.id` is the admin user id.
       x-endpoint-id: E17
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
@@ -789,7 +791,8 @@ paths:
       summary: Manually mark an enrollment as overdue
       description: |
         **Roles:** ADMIN. Only `OVERDUE` is accepted. `UP_TO_DATE` is reached only by registering a payment (E17 or E12).
-        There is no automatic job (ADR-08).
+        There is no automatic job (ADR-08). Accepted in any enrollment status; marking an enrollment that is already `OVERDUE`
+        changes nothing. Any other value than `OVERDUE`/`UP_TO_DATE` is a 400 `VALIDATION_ERROR`.
       x-endpoint-id: E18
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, USE_PAYMENT_REGISTRATION]
@@ -814,7 +817,9 @@ paths:
       tags: [Payments]
       operationId: listPayments
       summary: Payment history (paginated)
-      description: '**Roles:** ADMIN (all), GUARDIAN (own, automatic).'
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (own, automatic). Ordered by `paymentDate` descending, then `id` descending. `from` and `to`
+        filter `paymentDate` and are inclusive; `from` after `to` returns 400 `VALIDATION_ERROR`.
       x-endpoint-id: E19
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: []
@@ -2105,7 +2110,7 @@ components:
       properties:
         amountPaid: { type: number, multipleOf: 0.01, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, description: 'COP, DECIMAL(10,2).', example: 120000 }
         paymentDate: { type: string, format: date, description: Cannot be in the future. }
-        receiptReference: { type: string, maxLength: 50 }
+        receiptReference: { type: string, maxLength: 50, description: 'The MER column allows 100; the contract keeps 50.' }
         notes: { type: string, maxLength: 255 }
     PaymentStatusRequest:
       type: object
