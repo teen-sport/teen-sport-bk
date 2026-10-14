@@ -70,17 +70,28 @@ Decisiones (2026-10-13):
 - Cupos: una matrícula vigente ocupa cupo desde su mes de inicio en adelante, así que E6, H9 (y E12/E15 en HU37) validan contra todas las matrículas vigentes del grupo. En E5, `occupiedSpots` cuenta las que empezaron en el periodo o antes y `availableSpots` es la capacidad menos todas las vigentes (mínimo 0).
 - Filtro `period` de E7: matrículas vigentes en ese mes (inicio igual o anterior y, sin filtro de estado, `PENDING_REVIEW` o `ACTIVE`).
 - El motivo opcional de E14 se guarda en `review_notes` (HU37).
-- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 7. Pago dentro de E12: pendiente de la Fase 5.
+- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 7. Pago dentro de E12: cerrado en HU36 (Fase 5).
 
-**Estado (2026-10-13): HU35 integrada en `development` (PR #20); HU37 implementada, pendiente de revisión.**
+**Estado (2026-10-14): HU35 (PR #20) y HU37 (PR #21) integradas en `development`.**
 - HU35: entidad `enrollments` (sin las columnas de soportes documentales); E5 `GET /availability`, E6 `POST /enrollments`, E7 `GET /enrollments`, E8 `GET /enrollments/{id}`; cupos en `SpotCounter` (una consulta agrupada para E5); E6 bloquea el deportista y luego el grupo antes de comprobar duplicado y cupo; H9 `CAPACITY_BELOW_OCCUPIED` y H10 `GROUP_HAS_ACTIVITY` (matrículas) con bloqueo del grupo; `hasActiveEnrollment` real en E1–E4 (en lote en E2). Los mappers de grupos y matrículas pasan a ser funciones estáticas. `./gradlew check`: 287 pruebas en verde.
-- HU37 en `feature/HU37/enrollment-review-lifecycle`: E12 `confirm`, E13 `reject`, E14 `cancel`, E15 `group` en `EnrollmentLifecycleService`; cada operación bloquea la matrícula y, al cambiar de grupo, el grupo de destino antes de contar cupos; reglas de grupo compartidas con E6 en `GroupEnrollmentPolicy`; reglas por URL para que solo `ADMIN` revise o mueva matrículas. `./gradlew check`: 310 pruebas en verde.
-- Pendiente: `payment` en E12 (Fase 5); correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 7).
+- HU37: E12 `confirm`, E13 `reject`, E14 `cancel`, E15 `group` en `EnrollmentLifecycleService`; cada operación bloquea la matrícula y, al cambiar de grupo, el grupo de destino antes de contar cupos; reglas de grupo compartidas con E6 en `GroupEnrollmentPolicy`; reglas por URL para que solo `ADMIN` revise o mueva matrículas. `./gradlew check`: 310 pruebas en verde.
+- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 7).
 
 ## Fase 5 — Pagos presenciales
 - Reporte por acudiente.
 - Registro por administrador e historial.
 - Estados de pago conforme al contrato; sin pasarela ni job automático.
+
+Se desarrolla en una historia de usuario: HU36 Gestión de pagos (E16–E19 y el pago dentro de E12).
+
+Decisiones (2026-10-14):
+- E16: la fecha que indica el acudiente solo sirve para detectar un mes ya pagado; `payment_reported_at` guarda el momento del reporte.
+- `receiptReference` se limita a 50 caracteres, como el contrato, aunque la columna del MER admite 100.
+- E18 se admite en cualquier estado de la matrícula y no cambia nada si ya estaba `OVERDUE`.
+- Un pago puede tener fecha anterior al mes de inicio de la matrícula; no hay regla que lo impida.
+
+**Estado (2026-10-14): HU36 implementada, pendiente de revisión.**
+- HU36 en `feature/HU36/payment-management`: entidad `payment_history`; E16 `payment-report`, E17 `payments`, E18 `payment-status` en `PaymentService`; E19 `GET /payments` en `PaymentQueryService`; reglas del pago (monto mínimo, fecha no futura, un pago por mes) en `PaymentRecorder`, compartido con E12; estados admitidos por operación en `EnrollmentStatePolicy`. E12, E16, E17 y E18 bloquean la matrícula, así que dos registros simultáneos del mismo mes guardan solo uno. Reglas por URL: registrar y marcar mora solo `ADMIN`, reportar solo `GUARDIAN`. `./gradlew check`: 336 pruebas en verde.
 
 ## Fase 6 — Sesiones y asistencia
 - Creación/generación de sesiones.

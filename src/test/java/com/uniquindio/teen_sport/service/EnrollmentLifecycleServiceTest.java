@@ -1,7 +1,9 @@
 package com.uniquindio.teen_sport.service;
 
 import com.uniquindio.teen_sport.config.AcademyCalendar;
+import com.uniquindio.teen_sport.dto.ConfirmEnrollmentRequest;
 import com.uniquindio.teen_sport.dto.EnrollmentDetail;
+import com.uniquindio.teen_sport.dto.RegisterPaymentRequest;
 import com.uniquindio.teen_sport.entity.Athlete;
 import com.uniquindio.teen_sport.entity.Discipline;
 import com.uniquindio.teen_sport.entity.Enrollment;
@@ -9,6 +11,7 @@ import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import com.uniquindio.teen_sport.entity.EntityStatus;
 import com.uniquindio.teen_sport.entity.Group;
 import com.uniquindio.teen_sport.entity.Guardian;
+import com.uniquindio.teen_sport.entity.PaymentHistory;
 import com.uniquindio.teen_sport.entity.PaymentStatus;
 import com.uniquindio.teen_sport.entity.Role;
 import com.uniquindio.teen_sport.entity.RoleName;
@@ -17,11 +20,14 @@ import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GroupRepository;
+import com.uniquindio.teen_sport.repository.PaymentHistoryRepository;
 import com.uniquindio.teen_sport.repository.ScheduleRepository;
+import com.uniquindio.teen_sport.repository.UserRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -54,16 +60,18 @@ class EnrollmentLifecycleServiceTest {
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final GroupRepository groupRepository = mock(GroupRepository.class);
     private final ScheduleRepository scheduleRepository = mock(ScheduleRepository.class);
+    private final PaymentHistoryRepository paymentRepository = mock(PaymentHistoryRepository.class);
     private EnrollmentLifecycleService service;
     private Discipline football;
 
     @BeforeEach
     void setUp() {
         AthleteAccessPolicy accessPolicy = new AthleteAccessPolicy();
+        AcademyCalendar calendar = new AcademyCalendar(Clock.fixed(NOW, ZoneOffset.UTC), "America/Bogota");
         service = new EnrollmentLifecycleService(enrollmentRepository, groupRepository, accessPolicy,
                 new SpotCounter(enrollmentRepository),
-                new EnrollmentQueryService(enrollmentRepository, scheduleRepository, accessPolicy),
-                new AcademyCalendar(Clock.fixed(NOW, ZoneOffset.UTC), "America/Bogota"));
+                new EnrollmentQueryService(enrollmentRepository, scheduleRepository, accessPolicy), calendar,
+                new PaymentRecorder(paymentRepository, mock(UserRepository.class), calendar));
         football = discipline(3);
     }
 
@@ -71,7 +79,7 @@ class EnrollmentLifecycleServiceTest {
     void confirmActivatesTheEnrollmentKeepingPaymentOverdue() {
         Enrollment enrollment = enrollment(9, group(7, football, 15), EnrollmentStatus.PENDING_REVIEW);
 
-        EnrollmentDetail detail = service.confirm(9, null);
+        EnrollmentDetail detail = service.confirm(ADMIN, 9, null);
 
         assertThat(detail.status()).isEqualTo(EnrollmentStatus.ACTIVE);
         assertThat(detail.confirmedAt()).isEqualTo(NOW);
@@ -81,12 +89,40 @@ class EnrollmentLifecycleServiceTest {
     }
 
     @Test
+    void confirmWithAPaymentRegistersItAndLeavesTheEnrollmentUpToDate() {
+        Enrollment enrollment = enrollment(9, group(7, football, 15), EnrollmentStatus.PENDING_REVIEW);
+        enrollment.setPaymentReported(true);
+        RegisterPaymentRequest payment = new RegisterPaymentRequest(BigDecimal.TEN, LocalDate.of(2026, 10, 12),
+                "R-1", null);
+
+        EnrollmentDetail detail = service.confirm(ADMIN, 9, new ConfirmEnrollmentRequest(null, payment));
+
+        assertThat(detail.status()).isEqualTo(EnrollmentStatus.ACTIVE);
+        assertThat(detail.paymentStatus()).isEqualTo(PaymentStatus.UP_TO_DATE);
+        assertThat(detail.paymentReported()).isFalse();
+        verify(paymentRepository).save(any(PaymentHistory.class));
+    }
+
+    @Test
+    void anInvalidPaymentLeavesTheEnrollmentPending() {
+        Enrollment enrollment = enrollment(9, group(7, football, 15), EnrollmentStatus.PENDING_REVIEW);
+        RegisterPaymentRequest low = new RegisterPaymentRequest(BigDecimal.ONE, LocalDate.of(2026, 10, 12),
+                null, null);
+
+        BusinessException failure = failure(() -> service.confirm(ADMIN, 9, new ConfirmEnrollmentRequest(null, low)));
+
+        assertThat(failure.getCode()).isEqualTo(ErrorCode.INSUFFICIENT_AMOUNT);
+        assertThat(enrollment.getStatus()).isEqualTo(EnrollmentStatus.PENDING_REVIEW);
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
     void confirmInTheCurrentGroupRequiresItToBeActive() {
         Group group = group(7, football, 15);
         group.setStatus(EntityStatus.INACTIVE);
         enrollment(9, group, EnrollmentStatus.PENDING_REVIEW);
 
-        assertThat(failure(() -> service.confirm(9, 7)).getCode()).isEqualTo(ErrorCode.GROUP_INACTIVE);
+        assertThat(failure(() -> service.confirm(ADMIN, 9, new ConfirmEnrollmentRequest(7, null))).getCode()).isEqualTo(ErrorCode.GROUP_INACTIVE);
     }
 
     @Test
@@ -94,7 +130,7 @@ class EnrollmentLifecycleServiceTest {
         Enrollment enrollment = enrollment(9, group(7, football, 15), EnrollmentStatus.PENDING_REVIEW);
         Group target = group(8, football, 15);
 
-        EnrollmentDetail detail = service.confirm(9, 8);
+        EnrollmentDetail detail = service.confirm(ADMIN, 9, new ConfirmEnrollmentRequest(8, null));
 
         assertThat(detail.group().id()).isEqualTo(8);
         assertThat(enrollment.getGroup()).isSameAs(target);
@@ -148,7 +184,7 @@ class EnrollmentLifecycleServiceTest {
     void onlyPendingEnrollmentsCanBeConfirmedOrRejected(EnrollmentStatus status) {
         enrollment(9, group(7, football, 15), status);
 
-        BusinessException confirm = failure(() -> service.confirm(9, null));
+        BusinessException confirm = failure(() -> service.confirm(ADMIN, 9, null));
         assertThat(confirm.getCode()).isEqualTo(ErrorCode.INVALID_STATE);
         assertThat(confirm.getStatus()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(failure(() -> service.reject(9, "Motivo")).getCode()).isEqualTo(ErrorCode.INVALID_STATE);
@@ -210,7 +246,7 @@ class EnrollmentLifecycleServiceTest {
 
     @Test
     void missingEnrollmentIsNotFound() {
-        assertThat(failure(() -> service.confirm(99, null)).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(failure(() -> service.confirm(ADMIN, 99, null)).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(failure(() -> service.cancel(ADMIN, 99, null)).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 

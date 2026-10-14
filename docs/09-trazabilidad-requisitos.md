@@ -8,7 +8,7 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 | U6–U12 | Administración de usuarios | UserController/UserService, UserRepository, Guardian/Coach profiles | Roles, duplicados, estado inactivo, paginación y búsqueda |
 | E1–E4 | Deportistas | AthleteController/AthleteService, AthleteRepository | Edad, pertenencia, duplicados, acceso a recursos ajenos |
 | E5–E15 | Disponibilidad y matrículas | EnrollmentService, GroupRepository, EnrollmentRepository, transacciones | Cupos concurrentes, transiciones de estado, reasignación de grupo, liberación de cupo |
-| E16–E19 | Pagos presenciales | PaymentService, PaymentHistoryRepository | Reporte no cambia estado, importe mínimo, duplicado, roles y pertenencia |
+| E16–E19 | Pagos presenciales | PaymentService, PaymentRecorder, PaymentQueryService, PaymentHistoryRepository | Reporte no cambia estado, importe mínimo, duplicado, roles y pertenencia |
 | H1–H5 | Disciplinas | DisciplineController/Service/Repository | Mensualidad positiva, duplicados, desactivación con grupos activos |
 | H6–H14 | Grupos y horarios | GroupController/Service, ScheduleRepository | Capacidad 1–15, entrenador activo, horarios y permisos |
 | A1–A6 | Sesiones | SessionController/Service/Repository | Fechas, cancelación, permisos de entrenador, transiciones de estado |
@@ -43,7 +43,13 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
 | HU35 Solicitud de matrícula | E5–E8; cierra H9 `CAPACITY_BELOW_OCCUPIED`, H10 `GROUP_HAS_ACTIVITY` (matrículas) y `hasActiveEnrollment` (E1–E4) | Integrada en `development` (PR #20); correo `NO_SPOTS_AVAILABLE` pendiente de la Fase 7 | `EnrollmentServiceTest`, `EnrollmentQueryServiceTest`, `AvailabilityServiceTest`, `SpotCounterTest`, `PeriodPolicyTest`, `GroupServiceTest`, `AthleteServiceTest`, `EnrollmentIntegrationTest` (incluye concurrencia), `AvailabilityIntegrationTest` | RNF-11, RNF-13, RNF-15 |
-| HU37 Revisión y ciclo de la matrícula | E12–E15 | Implementada (pendiente de revisión); `payment` en E12 pendiente de la Fase 5 y correos de E12/E13 de la Fase 7 | `EnrollmentLifecycleServiceTest`, `EnrollmentLifecycleIntegrationTest` (incluye concurrencia) | RNF-11, RNF-13, RNF-15 |
+| HU37 Revisión y ciclo de la matrícula | E12–E15 | Integrada en `development` (PR #21); `payment` en E12 cerrado en HU36; correos de E12/E13 pendientes de la Fase 7 | `EnrollmentLifecycleServiceTest`, `EnrollmentLifecycleIntegrationTest` (incluye concurrencia) | RNF-11, RNF-13, RNF-15 |
+
+## Historias de usuario de la Fase 5
+
+| HU | IDs API | Estado | Pruebas automatizadas | RNF |
+|---|---|---|---|---|
+| HU36 Gestión de pagos | E16–E19; cierra `payment` en E12 | Implementada (pendiente de revisión) | `PaymentServiceTest`, `PaymentQueryServiceTest`, `EnrollmentLifecycleServiceTest`, `PaymentIntegrationTest` (incluye concurrencia) | RNF-11, RNF-13, RNF-15 |
 
 ## Requisitos no funcionales
 Relacionar cada prueba con RNF-04 a RNF-17 cuando corresponda. Los RNF-01 a RNF-03 deben transcribirse desde el plan de calidad original para preservar sus métricas exactas.

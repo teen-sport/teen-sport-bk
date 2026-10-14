@@ -125,14 +125,14 @@ public class EnrollmentController {
      * E12: confirma una matrícula pendiente.
      *
      * @param id      id de la matrícula
-     * @param request grupo de destino opcional; el cuerpo puede omitirse
+     * @param request grupo de destino y pago, opcionales; el cuerpo puede omitirse
      * @return 200 con la matrícula confirmada
      */
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADMIN')")
     public EnrollmentDetail confirmEnrollment(@PathVariable Integer id,
-                                              @RequestBody(required = false) ConfirmEnrollmentRequest request) {
-        return lifecycleService.confirm(id, request == null ? null : request.groupId());
+                                              @Valid @RequestBody(required = false) ConfirmEnrollmentRequest request) {
+        return lifecycleService.confirm(currentUserService.current(), id, request);
     }
 
     /**

@@ -123,6 +123,10 @@ public class Enrollment {
         return paymentStatus;
     }
 
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
     public String getReviewNotes() {
         return reviewNotes;
     }
@@ -143,12 +147,24 @@ public class Enrollment {
         return paymentReported;
     }
 
+    public void setPaymentReported(boolean paymentReported) {
+        this.paymentReported = paymentReported;
+    }
+
     public Instant getPaymentReportedAt() {
         return paymentReportedAt;
     }
 
+    public void setPaymentReportedAt(Instant paymentReportedAt) {
+        this.paymentReportedAt = paymentReportedAt;
+    }
+
     public String getPaymentReportNote() {
         return paymentReportNote;
+    }
+
+    public void setPaymentReportNote(String paymentReportNote) {
+        this.paymentReportNote = paymentReportNote;
     }
 
     public Instant getCreatedAt() {
