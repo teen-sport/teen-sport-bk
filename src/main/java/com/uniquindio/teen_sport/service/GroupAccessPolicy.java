@@ -37,6 +37,19 @@ public class GroupAccessPolicy {
         }
     }
 
+    /**
+     * Para las operaciones reservadas al entrenador del grupo, como registrar la asistencia (A8).
+     *
+     * @param user  identidad autenticada
+     * @param group grupo
+     * @throws BusinessException 403 {@code ACCESS_DENIED} si no es el entrenador a cargo del grupo
+     */
+    public void requireCoachOf(AuthenticatedUser user, Group group) {
+        if (!ownCoachId(user).equals(group.getCoach().getId())) {
+            throw accessDenied();
+        }
+    }
+
     private static Integer ownCoachId(AuthenticatedUser user) {
         if (user.role() != RoleName.COACH || user.coachId() == null) {
             throw accessDenied();

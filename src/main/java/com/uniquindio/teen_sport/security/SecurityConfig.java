@@ -123,6 +123,24 @@ public class SecurityConfig {
             API_PREFIX + "/schedules/**"
     };
 
+    /**
+     * Lista y registro de asistencia (A7, A8): consulta {@code ADMIN} y {@code COACH}; registro solo
+     * {@code COACH}. Debe evaluarse antes que {@link #SESSION_ENDPOINTS}.
+     */
+    private static final String SESSION_ATTENDANCE_ENDPOINT = API_PREFIX + "/sessions/*/attendance";
+
+    /**
+     * Sesiones (A1–A6): lectura para los tres roles; programación para {@code ADMIN} y {@code COACH}. El
+     * alcance de cada rol se aplica en el servicio.
+     */
+    private static final String[] SESSION_ENDPOINTS = {
+            API_PREFIX + "/sessions",
+            API_PREFIX + "/sessions/**"
+    };
+
+    /** Historial de asistencia (A9): los tres roles; el alcance se aplica en el servicio. */
+    private static final String ATTENDANCE_HISTORY_ENDPOINT = API_PREFIX + "/attendance-records";
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/actuator/health", "/actuator/health/**",
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
@@ -160,6 +178,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
                         .requestMatchers(GROUP_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(SCHEDULE_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, SESSION_ATTENDANCE_ENDPOINT).hasAnyRole("ADMIN", "COACH")
+                        .requestMatchers(SESSION_ATTENDANCE_ENDPOINT).hasRole("COACH")
+                        .requestMatchers(HttpMethod.GET, SESSION_ENDPOINTS).hasAnyRole("ADMIN", "COACH", "GUARDIAN")
+                        .requestMatchers(SESSION_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
+                        .requestMatchers(ATTENDANCE_HISTORY_ENDPOINT).hasAnyRole("ADMIN", "COACH", "GUARDIAN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))

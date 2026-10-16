@@ -56,7 +56,7 @@ Se desarrolla en una sola historia de usuario: HU33 (H6–H14).
 **Estado (2026-10-13): integrada en `development` (PR #19).**
 - HU33: entidades `groups` (nombre físico decidido el 2026-10-13) y `schedules`; H6–H14; propiedad de grupos para entrenadores (`GroupAccessPolicy`); detección de cruces (`ScheduleConflictChecker`, solo grupos activos, franjas contiguas permitidas) con bloqueo pesimista del grupo y del entrenador; reactivar un grupo (H10) comprueba cruces con los demás grupos activos del entrenador (`COACH_SCHEDULE_CONFLICT`, añadido al contrato); cierre de `COACH_HAS_ACTIVE_GROUPS` (U10) y `DISCIPLINE_HAS_ACTIVE_GROUPS` (H5). Mockito pasa a cargarse como `-javaagent`. `./gradlew check`: 245 pruebas en verde.
 - `CAPACITY_BELOW_OCCUPIED` (H9) y matrículas vigentes en `GROUP_HAS_ACTIVITY` (H10): cerrados en HU35.
-- Pendiente para la Fase 6: sesiones futuras en `GROUP_HAS_ACTIVITY` (H10) y traspaso de sesiones futuras al nuevo entrenador (H11).
+- Sesiones futuras en `GROUP_HAS_ACTIVITY` (H10) y su traspaso al nuevo entrenador (H11): cerrados en HU39 (Fase 6).
 
 ## Fase 4 — Matrículas y disponibilidad
 - Disponibilidad por periodo.
@@ -90,13 +90,27 @@ Decisiones (2026-10-14):
 - E18 se admite en cualquier estado de la matrícula y no cambia nada si ya estaba `OVERDUE`.
 - Un pago puede tener fecha anterior al mes de inicio de la matrícula; no hay regla que lo impida.
 
-**Estado (2026-10-14): HU36 implementada, pendiente de revisión.**
-- HU36 en `feature/HU36/payment-management`: entidad `payment_history`; E16 `payment-report`, E17 `payments`, E18 `payment-status` en `PaymentService`; E19 `GET /payments` en `PaymentQueryService`; reglas del pago (monto mínimo, fecha no futura, un pago por mes) en `PaymentRecorder`, compartido con E12; estados admitidos por operación en `EnrollmentStatePolicy`. E12, E16, E17 y E18 bloquean la matrícula, así que dos registros simultáneos del mismo mes guardan solo uno. Reglas por URL: registrar y marcar mora solo `ADMIN`, reportar solo `GUARDIAN`. `./gradlew check`: 336 pruebas en verde.
+**Estado (2026-10-14): HU36 integrada en `development` (PR #22).**
+- HU36: entidad `payment_history`; E16 `payment-report`, E17 `payments`, E18 `payment-status` en `PaymentService`; E19 `GET /payments` en `PaymentQueryService`; reglas del pago (monto mínimo, fecha no futura, un pago por mes) en `PaymentRecorder`, compartido con E12; estados admitidos por operación en `EnrollmentStatePolicy`. E12, E16, E17 y E18 bloquean la matrícula, así que dos registros simultáneos del mismo mes guardan solo uno. Reglas por URL: registrar y marcar mora solo `ADMIN`, reportar solo `GUARDIAN`. `./gradlew check`: 336 pruebas en verde.
 
 ## Fase 6 — Sesiones y asistencia
 - Creación/generación de sesiones.
 - Lista elegible y registro de asistencia.
 - Consultas históricas filtradas por rol.
+
+Se desarrolla en una historia de usuario: HU39 Registro y consulta de asistencia (A1–A9 y las sesiones futuras de H10 y H11).
+
+Decisiones (2026-10-14):
+- Una fecha "pasada" (A1, A2, A5) se compara solo por día en la zona de la academia: hoy se admite aunque la hora ya pasó.
+- Una sesión "futura" en A8 es la de fecha posterior a hoy; la del mismo día se puede registrar.
+- El entrenador que gestiona las sesiones y registra la asistencia es el actual del grupo.
+- A3 sin fechas usa la semana actual (lunes a domingo); con un solo extremo, siete días. A2 y A3 abarcan como máximo 62 días, contando ambos extremos.
+- En H10 y H11, "futuras" son las sesiones `SCHEDULED` con fecha de hoy en adelante.
+- Las marcas de deportistas que salen de la lista se conservan en el historial (A9) y no aparecen en A7.
+
+**Estado (2026-10-14): HU39 implementada, pendiente de revisión.**
+- HU39 en `feature/HU39/attendance-management`: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`. `./gradlew check` completo: pendiente de ejecutar.
+- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Fase 7.
 
 ## Fase 7 — Informes y correo
 - Informes R1–R4 con consultas probadas.

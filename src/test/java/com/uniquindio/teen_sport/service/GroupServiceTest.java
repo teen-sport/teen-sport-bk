@@ -1,5 +1,6 @@
 package com.uniquindio.teen_sport.service;
 
+import com.uniquindio.teen_sport.config.AcademyCalendar;
 import com.uniquindio.teen_sport.dto.CreateGroupRequest;
 import com.uniquindio.teen_sport.dto.GroupResponse;
 import com.uniquindio.teen_sport.dto.UpdateGroupRequest;
@@ -11,6 +12,7 @@ import com.uniquindio.teen_sport.entity.Group;
 import com.uniquindio.teen_sport.entity.Role;
 import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.entity.Schedule;
+import com.uniquindio.teen_sport.entity.SessionStatus;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.exception.BusinessException;
 import com.uniquindio.teen_sport.exception.ErrorCode;
@@ -19,11 +21,15 @@ import com.uniquindio.teen_sport.repository.DisciplineRepository;
 import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.repository.ScheduleRepository;
+import com.uniquindio.teen_sport.repository.TrainingSessionRepository;
 import com.uniquindio.teen_sport.security.AuthenticatedUser;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,12 +61,15 @@ class GroupServiceTest {
     private final DisciplineRepository disciplineRepository = mock(DisciplineRepository.class);
     private final CoachRepository coachRepository = mock(CoachRepository.class);
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
+    private final TrainingSessionRepository sessionRepository = mock(TrainingSessionRepository.class);
+    private final AcademyCalendar calendar = new AcademyCalendar(
+            Clock.fixed(Instant.parse("2026-10-13T03:00:00Z"), ZoneOffset.UTC), "America/Bogota");
     private GroupService service;
 
     @BeforeEach
     void setUp() {
         service = new GroupService(groupRepository, scheduleRepository, disciplineRepository, coachRepository,
-                enrollmentRepository, new GroupAccessPolicy(), new ScheduleConflictChecker(scheduleRepository));
+                new GroupActivity(enrollmentRepository, sessionRepository, calendar), new GroupAccessPolicy(), new ScheduleConflictChecker(scheduleRepository));
         when(groupRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -177,6 +186,18 @@ class GroupServiceTest {
     }
 
     @Test
+    void groupWithFutureSessionsCannotBeDeactivated() {
+        Group group = group(7, coach(10, EntityStatus.ACTIVE));
+        when(sessionRepository.existsByGroupIdAndStatusAndSessionDateGreaterThanEqual(7, SessionStatus.SCHEDULED,
+                LocalDate.of(2026, 10, 12))).thenReturn(true);
+
+        BusinessException ex = failure(() -> service.changeStatus(7, EntityStatus.INACTIVE));
+
+        assertThat(ex.getCode()).isEqualTo(ErrorCode.GROUP_HAS_ACTIVITY);
+        assertThat(group.getStatus()).isEqualTo(EntityStatus.ACTIVE);
+    }
+
+    @Test
     void keepingTheSameStatusChangesNothing() {
         group(7, coach(10, EntityStatus.ACTIVE));
 
@@ -244,6 +265,7 @@ class GroupServiceTest {
         assertThat(service.assignCoach(7, 13).coach().id()).isEqualTo(13);
         assertThat(group.getCoach()).isSameAs(free);
         verify(coachRepository).findLockedById(13);
+        verify(sessionRepository).reassignScheduledFrom(7, free, LocalDate.of(2026, 10, 12));
     }
 
     @Test
@@ -254,6 +276,7 @@ class GroupServiceTest {
         service.assignCoach(7, 10);
 
         verify(scheduleRepository, never()).findActiveByCoachExcludingGroup(any(), any());
+        verify(sessionRepository, never()).reassignScheduledFrom(any(), any(), any());
     }
 
     private Discipline discipline(int id, EntityStatus status) {

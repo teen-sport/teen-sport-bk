@@ -5,7 +5,6 @@ import com.uniquindio.teen_sport.dto.GroupResponse;
 import com.uniquindio.teen_sport.dto.UpdateGroupRequest;
 import com.uniquindio.teen_sport.entity.Coach;
 import com.uniquindio.teen_sport.entity.Discipline;
-import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import com.uniquindio.teen_sport.entity.EntityStatus;
 import com.uniquindio.teen_sport.entity.Group;
 import com.uniquindio.teen_sport.entity.Schedule;
@@ -14,7 +13,6 @@ import com.uniquindio.teen_sport.exception.ErrorCode;
 import com.uniquindio.teen_sport.mapper.GroupMapper;
 import com.uniquindio.teen_sport.repository.CoachRepository;
 import com.uniquindio.teen_sport.repository.DisciplineRepository;
-import com.uniquindio.teen_sport.repository.EnrollmentRepository;
 import com.uniquindio.teen_sport.repository.GroupRepository;
 import com.uniquindio.teen_sport.repository.GroupSpecifications;
 import com.uniquindio.teen_sport.repository.ScheduleRepository;
@@ -39,11 +37,10 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>El nuevo entrenador de un grupo debe estar activo y libre en todas sus franjas.</li>
  *   <li>Al reactivar un grupo, su entrenador debe estar libre en todas las franjas del grupo.</li>
  *   <li>La capacidad no puede quedar por debajo de las matrículas vigentes ({@code CAPACITY_BELOW_OCCUPIED}).</li>
- *   <li>Un grupo con matrículas vigentes no se puede desactivar ({@code GROUP_HAS_ACTIVITY}).</li>
+ *   <li>Un grupo con matrículas vigentes o sesiones futuras no se puede desactivar
+ *       ({@code GROUP_HAS_ACTIVITY}).</li>
+ *   <li>Al cambiar de entrenador, las sesiones futuras pasan al nuevo ({@link GroupActivity}).</li>
  * </ul>
- *
- * <p>Pendientes de la Fase 6: las sesiones futuras en {@code GROUP_HAS_ACTIVITY} (H10) y su traspaso
- * al nuevo entrenador en H11.</p>
  */
 @Service
 public class GroupService {
@@ -62,7 +59,8 @@ public class GroupService {
     static final String INACTIVE_DISCIPLINE_MESSAGE = "La disciplina está inactiva.";
     static final String CAPACITY_BELOW_OCCUPIED_MESSAGE =
             "La capacidad no puede ser menor que las matrículas vigentes del grupo.";
-    static final String HAS_ACTIVITY_MESSAGE = "El grupo tiene matrículas vigentes y no se puede desactivar.";
+    static final String HAS_ACTIVITY_MESSAGE =
+            "El grupo tiene matrículas vigentes o sesiones futuras y no se puede desactivar.";
 
     /** Orden del listado: nombre y, para desempatar, id. */
     static final Sort ORDER = Sort.by("name", "id");
@@ -71,7 +69,7 @@ public class GroupService {
     private final ScheduleRepository scheduleRepository;
     private final DisciplineRepository disciplineRepository;
     private final CoachRepository coachRepository;
-    private final EnrollmentRepository enrollmentRepository;
+    private final GroupActivity groupActivity;
     private final GroupAccessPolicy accessPolicy;
     private final ScheduleConflictChecker conflictChecker;
 
@@ -80,19 +78,19 @@ public class GroupService {
      * @param scheduleRepository   franjas
      * @param disciplineRepository disciplinas
      * @param coachRepository      entrenadores
-     * @param enrollmentRepository matrículas
+     * @param groupActivity        matrículas vigentes y sesiones futuras del grupo
      * @param accessPolicy         regla de propiedad para entrenadores
      * @param conflictChecker      detección de cruces de franjas
      */
     public GroupService(GroupRepository groupRepository, ScheduleRepository scheduleRepository,
                         DisciplineRepository disciplineRepository, CoachRepository coachRepository,
-                        EnrollmentRepository enrollmentRepository, GroupAccessPolicy accessPolicy,
+                        GroupActivity groupActivity, GroupAccessPolicy accessPolicy,
                         ScheduleConflictChecker conflictChecker) {
         this.groupRepository = groupRepository;
         this.scheduleRepository = scheduleRepository;
         this.disciplineRepository = disciplineRepository;
         this.coachRepository = coachRepository;
-        this.enrollmentRepository = enrollmentRepository;
+        this.groupActivity = groupActivity;
         this.accessPolicy = accessPolicy;
         this.conflictChecker = conflictChecker;
     }
@@ -174,7 +172,7 @@ public class GroupService {
         Group group = findDetailed(groupId);
         requireValidCapacity(request.maxCapacity());
         groupRepository.findLockedById(groupId);
-        if (enrollmentRepository.countByGroupIdAndStatusIn(groupId, EnrollmentStatus.IN_FORCE) > request.maxCapacity()) {
+        if (groupActivity.inForceEnrollments(groupId) > request.maxCapacity()) {
             throw new BusinessException(ErrorCode.CAPACITY_BELOW_OCCUPIED, HttpStatus.CONFLICT,
                     CAPACITY_BELOW_OCCUPIED_MESSAGE);
         }
@@ -190,8 +188,9 @@ public class GroupService {
      * comprueba que sus franjas no se crucen con las de los demás grupos activos del mismo
      * entrenador. Se bloquean el grupo y el entrenador, igual que al asignar franjas o entrenador.</p>
      *
-     * <p>Un grupo con matrículas vigentes no se puede desactivar. El grupo se bloquea antes de contarlas
-     * para que no entre una matrícula nueva (E6) entre la comprobación y el cambio.</p>
+     * <p>Un grupo con matrículas vigentes o sesiones futuras no se puede desactivar. El grupo se bloquea
+     * antes de comprobarlo para que no entre una matrícula (E6) ni una sesión (A1, A2) nueva entre la
+     * comprobación y el cambio.</p>
      *
      * @param groupId id del grupo
      * @param status  nuevo estado
@@ -209,7 +208,7 @@ public class GroupService {
         if (status == EntityStatus.ACTIVE) {
             coachRepository.findLockedById(group.getCoach().getId());
             conflictChecker.requireCoachAvailable(group, group.getCoach().getId());
-        } else if (enrollmentRepository.existsByGroupIdAndStatusIn(groupId, EnrollmentStatus.IN_FORCE)) {
+        } else if (groupActivity.hasActivity(groupId)) {
             throw new BusinessException(ErrorCode.GROUP_HAS_ACTIVITY, HttpStatus.CONFLICT, HAS_ACTIVITY_MESSAGE);
         }
         group.setStatus(status);
@@ -218,7 +217,8 @@ public class GroupService {
 
     /**
      * H11: asigna o cambia el entrenador del grupo. Bloquea el grupo y el nuevo entrenador para que
-     * ningún cambio simultáneo de franjas invalide la comprobación de cruces.
+     * ningún cambio simultáneo de franjas invalide la comprobación de cruces. Las sesiones futuras del
+     * grupo pasan al nuevo entrenador; las anteriores conservan al que las dictó.
      *
      * @param groupId id del grupo
      * @param coachId id del nuevo entrenador
@@ -234,6 +234,7 @@ public class GroupService {
         if (!coach.getId().equals(group.getCoach().getId())) {
             conflictChecker.requireCoachAvailable(group, coach.getId());
             group.setCoach(coach);
+            groupActivity.moveFutureSessions(groupId, coach);
         }
         return toResponse(group);
     }

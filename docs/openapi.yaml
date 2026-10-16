@@ -1079,7 +1079,7 @@ paths:
       summary: Activate or deactivate a group
       description: |
         **Roles:** ADMIN. Deactivating is refused (409 `GROUP_HAS_ACTIVITY`) while the group has in-force enrollments
-        (`PENDING_REVIEW` or `ACTIVE`) or, from phase 6, future sessions.
+        (`PENDING_REVIEW` or `ACTIVE`) or future sessions (`SCHEDULED` with date today or later).
         Reactivating is refused (409 `COACH_SCHEDULE_CONFLICT`) if any of the group's slots overlaps a slot of another
         `ACTIVE` group of the same coach, since slots of inactive groups do not block the coach.
       x-endpoint-id: H10
@@ -1109,7 +1109,7 @@ paths:
       summary: Assign or change the group coach
       description: |
         **Roles:** ADMIN. The coach must be `ACTIVE` and must not have a schedule overlapping the group's schedules.
-        Future sessions of the group move to the new coach (a session inherits the coach of its group).
+        Future sessions of the group (`SCHEDULED` with date today or later) move to the new coach; earlier ones keep the coach who gave them.
       x-endpoint-id: H11
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_COACH, COACH_SCHEDULE_CONFLICT]
@@ -1211,6 +1211,9 @@ paths:
       description: |
         **Roles:** ADMIN, COACH (own group). The date cannot be in the past. It does not have to match a group schedule (extra sessions are allowed).
         A group cannot have two sessions with the same date and start time. Created in `SCHEDULED`. No e-mail is sent.
+        "In the past" compares only the date in the academy time zone: today is accepted even if the hour has passed.
+        The session is given by the current coach of the group. Validation order: 404, 403, `GROUP_INACTIVE`,
+        `INVALID_TIME_RANGE`, `DATE_IN_PAST`, `DUPLICATE_SESSION`.
       x-endpoint-id: A1
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
@@ -1236,9 +1239,11 @@ paths:
       operationId: listSessions
       summary: Session calendar
       description: |
-        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (groups where one of their athletes has an `ACTIVE` enrollment;
-        each item includes `athletes`).
-        `from` and `to` default to the current week.
+        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (groups where one of their athletes has an `ACTIVE` enrollment
+        whose start `period` is on or before the month of the session; each item includes `athletes`).
+        Without dates the range is the current week (Monday to Sunday, academy time zone); with only `from` it is the seven days
+        starting at `from`; with only `to`, the seven days ending at `to`. The range covers at most 62 days, both ends included
+        (422 `INVALID_DATE_RANGE`). `athleteId` keeps the sessions of groups where that athlete has an `ACTIVE` enrollment already started.
       x-endpoint-id: A3
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: [INVALID_DATE_RANGE]
@@ -1278,8 +1283,10 @@ paths:
       operationId: generateSessions
       summary: Generate sessions from the group's weekly schedules
       description: |
-        **Roles:** ADMIN, COACH (own group). Creates one session per schedule slot and date in the range (max 62 days, proposed). Duplicates are skipped.
-        With `notify=true` every guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`.
+        **Roles:** ADMIN, COACH (own group). Creates one session per schedule slot and date in the range (at most 62 days, both ends
+        included). Sessions with the same date and start time as an existing one are skipped. `dateFrom` cannot be before today.
+        With `notify=true` every guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`
+        (from phase 7; until then `notify` is accepted and no e-mail is sent). `sessions` holds only the created sessions.
       x-endpoint-id: A2
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, GROUP_WITHOUT_SCHEDULES, INVALID_DATE_RANGE, DATE_IN_PAST]
@@ -1323,7 +1330,9 @@ paths:
       tags: [Sessions]
       operationId: updateSession
       summary: Reschedule a session
-      description: '**Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions. Sends `SCHEDULE_CHANGE` to the guardians of the group.'
+      description: |
+        **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions (409 `INVALID_STATE`). Same date, time and duplicate rules as A1,
+        ignoring the session itself. `notes` replaces the previous notes. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
       x-endpoint-id: A5
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
@@ -1353,7 +1362,7 @@ paths:
       summary: Cancel a session
       description: |
         **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions. The reason is stored in `notes`. Cancelled sessions do not count
-        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group.
+        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
       x-endpoint-id: A6
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
@@ -1383,7 +1392,8 @@ paths:
       summary: Session roster with saved marks
       description: |
         **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose start `period`
-        is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked.
+        is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked. Marks of athletes
+        that left the roster later are kept in the history (A9) but are not listed here.
       x-endpoint-id: A7
       x-roles: [COACH, ADMIN]
       x-error-codes: [NOT_FOUND]
@@ -1402,7 +1412,9 @@ paths:
       summary: Record attendance for the whole roster
       description: |
         **Roles:** COACH only (assigned to the group). One call with the whole roster; saving again overwrites the previous marks (upsert).
-        Marks the session `COMPLETED`. Cannot be done for a future session or a cancelled one.
+        Marks the session `COMPLETED`. Cannot be done for a future session (date after today in the academy time zone; today is
+        allowed, 422 `FUTURE_SESSION`) or a cancelled one (409 `SESSION_CANCELLED`). An athlete outside the roster returns 422
+        `ATHLETE_NOT_IN_ROSTER`; a missing one, 422 `INCOMPLETE_ATTENDANCE`; a repeated one, 400 `VALIDATION_ERROR` on `records`.
       x-endpoint-id: A8
       x-roles: [COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INCOMPLETE_ATTENDANCE, ATHLETE_NOT_IN_ROSTER, FUTURE_SESSION, SESSION_CANCELLED]
@@ -1428,7 +1440,9 @@ paths:
       tags: [Attendance]
       operationId: listAttendanceRecords
       summary: Attendance history (paginated)
-      description: '**Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (own athletes, automatic).'
+      description: |
+        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (own athletes, automatic). Ordered by session date and start
+        time descending. `from` and `to` filter the session date and are inclusive; `from` after `to` returns 422 `INVALID_DATE_RANGE`.
       x-endpoint-id: A9
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: [INVALID_DATE_RANGE]
