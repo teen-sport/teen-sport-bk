@@ -11,8 +11,8 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 | E16–E19 | Pagos presenciales | PaymentService, PaymentRecorder, PaymentQueryService, PaymentHistoryRepository | Reporte no cambia estado, importe mínimo, duplicado, roles y pertenencia |
 | H1–H5 | Disciplinas | DisciplineController/Service/Repository | Mensualidad positiva, duplicados, desactivación con grupos activos |
 | H6–H14 | Grupos y horarios | GroupController/Service, ScheduleRepository | Capacidad 1–15, entrenador activo, horarios y permisos |
-| A1–A6 | Sesiones | SessionController/Service/Repository | Fechas, cancelación, permisos de entrenador, transiciones de estado |
-| A7–A9 | Asistencia | AttendanceController/Service/Repository | Lista elegible, upsert, sesión futura/cancelada, filtros por propiedad |
+| A1–A6 | Sesiones | SessionController, SessionService, SessionQueryService, SessionSlotPolicy, TrainingSessionRepository | Fechas, cancelación, permisos de entrenador, transiciones de estado |
+| A7–A9 | Asistencia | AttendanceController, AttendanceService, AttendanceQueryService, AttendanceRecordRepository | Lista elegible, upsert, sesión futura/cancelada, filtros por propiedad |
 | R1–R4 | Informes | ReportController/ReportService, repositorios/consultas | Agregaciones, rangos de fecha, aislamiento de datos por rol |
 | MER torneos | Torneos | Pendiente de contrato | Definir requisitos, endpoints, permisos y pruebas antes de implementar |
 | MER notificaciones | Notificaciones | NotificationService/Brevo adapter | Fallos de envío, reintentos, registro de estado y privacidad; confirmar contrato |
@@ -36,7 +36,7 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU33 Gestión de grupos, horario y entrenador | H6–H14; cierra U10 `COACH_HAS_ACTIVE_GROUPS` y H5 `DISCIPLINE_HAS_ACTIVE_GROUPS` | Integrada en `development` (PR #19); `CAPACITY_BELOW_OCCUPIED` y `GROUP_HAS_ACTIVITY` por matrículas se cierran en HU35; las sesiones (H10, H11) dependen de la Fase 6 | `TimeSlotTest`, `GroupServiceTest`, `ScheduleServiceTest`, `GroupIntegrationTest`, `ScheduleIntegrationTest` (incluye concurrencia), `UserAdministrationServiceTest`, `DisciplineServiceTest` | RNF-11, RNF-13, RNF-15 |
+| HU33 Gestión de grupos, horario y entrenador | H6–H14; cierra U10 `COACH_HAS_ACTIVE_GROUPS` y H5 `DISCIPLINE_HAS_ACTIVE_GROUPS` | Integrada en `development` (PR #19); `CAPACITY_BELOW_OCCUPIED` y `GROUP_HAS_ACTIVITY` por matrículas se cierran en HU35; las sesiones de H10 y H11 se cierran en HU39 | `TimeSlotTest`, `GroupServiceTest`, `ScheduleServiceTest`, `GroupIntegrationTest`, `ScheduleIntegrationTest` (incluye concurrencia), `UserAdministrationServiceTest`, `DisciplineServiceTest` | RNF-11, RNF-13, RNF-15 |
 
 ## Historias de usuario de la Fase 4
 
@@ -49,7 +49,13 @@ Esta matriz inicial vincula las familias de endpoints del OpenAPI con capas y pr
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU36 Gestión de pagos | E16–E19; cierra `payment` en E12 | Implementada (pendiente de revisión) | `PaymentServiceTest`, `PaymentQueryServiceTest`, `EnrollmentLifecycleServiceTest`, `PaymentIntegrationTest` (incluye concurrencia) | RNF-11, RNF-13, RNF-15 |
+| HU36 Gestión de pagos | E16–E19; cierra `payment` en E12 | Integrada en `development` (PR #22) | `PaymentServiceTest`, `PaymentQueryServiceTest`, `EnrollmentLifecycleServiceTest`, `PaymentIntegrationTest` (incluye concurrencia) | RNF-11, RNF-13, RNF-15 |
+
+## Historias de usuario de la Fase 6
+
+| HU | IDs API | Estado | Pruebas automatizadas | RNF |
+|---|---|---|---|---|
+| HU39 Registro y consulta de asistencia | A1–A9; cierra las sesiones futuras de H10 y H11 | Implementada (pendiente de revisión); correos `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` pendientes de la Fase 7 | `SessionServiceTest`, `SessionQueryServiceTest`, `AttendanceServiceTest`, `AttendanceQueryServiceTest`, `DateRangePolicyTest`, `GroupServiceTest`, `SessionAttendanceIntegrationTest` (incluye concurrencia) | RNF-05, RNF-11, RNF-13, RNF-15 |
 
 ## Requisitos no funcionales
 Relacionar cada prueba con RNF-04 a RNF-17 cuando corresponda. Los RNF-01 a RNF-03 deben transcribirse desde el plan de calidad original para preservar sus métricas exactas.

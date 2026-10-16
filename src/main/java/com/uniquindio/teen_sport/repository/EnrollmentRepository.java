@@ -1,5 +1,6 @@
 package com.uniquindio.teen_sport.repository;
 
+import com.uniquindio.teen_sport.entity.Athlete;
 import com.uniquindio.teen_sport.entity.Enrollment;
 import com.uniquindio.teen_sport.entity.EnrollmentStatus;
 import jakarta.persistence.LockModeType;
@@ -111,4 +112,37 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
     @Query("select distinct e.athlete.id from Enrollment e where e.athlete.id in :athleteIds and e.status in :statuses")
     List<Integer> findAthleteIdsWithStatus(@Param("athleteIds") Collection<Integer> athleteIds,
                                            @Param("statuses") Collection<EnrollmentStatus> statuses);
+
+    /**
+     * Lista de asistencia de un grupo en un mes (A7, A8): los deportistas con matrícula {@code ACTIVE}
+     * iniciada ese mes o antes.
+     *
+     * @param groupId id del grupo
+     * @param period  mes de la sesión, como texto {@code YYYY-MM}
+     * @return los deportistas ordenados por apellidos, nombres e id
+     */
+    @Query("""
+            select a from Enrollment e join e.athlete a
+            where e.group.id = :groupId
+              and e.status = com.uniquindio.teen_sport.entity.EnrollmentStatus.ACTIVE
+              and e.periodMonth <= :period
+            order by a.lastName, a.firstName, a.id
+            """)
+    List<Athlete> findRosterAthletes(@Param("groupId") Integer groupId, @Param("period") String period);
+
+    /**
+     * @param status     estado
+     * @param guardianId id del acudiente
+     * @return las matrículas en ese estado de los deportistas del acudiente, con el deportista cargado
+     */
+    @EntityGraph(attributePaths = "athlete")
+    List<Enrollment> findByStatusAndAthleteGuardianId(EnrollmentStatus status, Integer guardianId);
+
+    /**
+     * @param status    estado
+     * @param athleteId id del deportista
+     * @return las matrículas del deportista en ese estado, con el deportista cargado
+     */
+    @EntityGraph(attributePaths = "athlete")
+    List<Enrollment> findByStatusAndAthleteId(EnrollmentStatus status, Integer athleteId);
 }
