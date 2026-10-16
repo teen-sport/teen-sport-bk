@@ -86,7 +86,8 @@ class AttendanceServiceTest {
         AttendanceRecord saved = new AttendanceRecord(session, luis, AttendanceStatus.PRESENT, earlier);
         when(attendanceRepository.findBySessionId(1)).thenReturn(List.of(saved));
 
-        AttendanceRoster roster = service.record(COACH, 1, request(5, AttendanceStatus.PRESENT, 6, AttendanceStatus.ABSENT));
+        AttendanceRoster roster = service.recordAttendance(COACH, 1,
+                request(5, AttendanceStatus.PRESENT, 6, AttendanceStatus.ABSENT));
 
         assertThat(roster.status()).isEqualTo(SessionStatus.COMPLETED);
         assertThat(roster.attendanceRecorded()).isTrue();
@@ -106,16 +107,18 @@ class AttendanceServiceTest {
     @Test
     void onlyTheGroupCoachRecordsAndOnlyForPastOrTodaysOpenSessions() {
         RecordAttendanceRequest full = request(5, AttendanceStatus.PRESENT, 6, AttendanceStatus.ABSENT);
-        assertThat(failure(() -> service.record(ADMIN, 1, full)).getCode()).isEqualTo(ErrorCode.ACCESS_DENIED);
-        assertThat(failure(() -> service.record(OTHER_COACH, 1, full)).getCode()).isEqualTo(ErrorCode.ACCESS_DENIED);
+        assertThat(failure(() -> service.recordAttendance(ADMIN, 1, full)).getCode())
+                .isEqualTo(ErrorCode.ACCESS_DENIED);
+        assertThat(failure(() -> service.recordAttendance(OTHER_COACH, 1, full)).getCode())
+                .isEqualTo(ErrorCode.ACCESS_DENIED);
 
         session.reschedule(TODAY.plusDays(1), session.getStartTime(), session.getEndTime());
-        BusinessException future = failure(() -> service.record(COACH, 1, full));
+        BusinessException future = failure(() -> service.recordAttendance(COACH, 1, full));
         assertThat(future.getCode()).isEqualTo(ErrorCode.FUTURE_SESSION);
         assertThat(future.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
 
         session.setStatus(SessionStatus.CANCELLED);
-        BusinessException cancelled = failure(() -> service.record(COACH, 1, full));
+        BusinessException cancelled = failure(() -> service.recordAttendance(COACH, 1, full));
         assertThat(cancelled.getCode()).isEqualTo(ErrorCode.SESSION_CANCELLED);
         assertThat(cancelled.getStatus()).isEqualTo(HttpStatus.CONFLICT);
         verify(attendanceRepository, never()).saveAll(anyList());
@@ -123,16 +126,16 @@ class AttendanceServiceTest {
 
     @Test
     void marksMustMatchTheRosterExactlyOnce() {
-        BusinessException outside = failure(() -> service.record(COACH, 1,
+        BusinessException outside = failure(() -> service.recordAttendance(COACH, 1,
                 request(5, AttendanceStatus.PRESENT, 9, AttendanceStatus.ABSENT)));
         assertThat(outside.getCode()).isEqualTo(ErrorCode.ATHLETE_NOT_IN_ROSTER);
 
-        BusinessException incomplete = failure(() -> service.record(COACH, 1,
+        BusinessException incomplete = failure(() -> service.recordAttendance(COACH, 1,
                 new RecordAttendanceRequest(List.of(new AttendanceMark(5, AttendanceStatus.PRESENT)))));
         assertThat(incomplete.getCode()).isEqualTo(ErrorCode.INCOMPLETE_ATTENDANCE);
 
         FieldValidationException repeated = catchThrowableOfType(FieldValidationException.class, () ->
-                service.record(COACH, 1, request(5, AttendanceStatus.PRESENT, 5, AttendanceStatus.ABSENT)));
+                service.recordAttendance(COACH, 1, request(5, AttendanceStatus.PRESENT, 5, AttendanceStatus.ABSENT)));
         assertThat(repeated.getField()).isEqualTo("records");
         assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
     }
@@ -142,7 +145,8 @@ class AttendanceServiceTest {
         session.reschedule(LocalDate.of(2026, 10, 1), session.getStartTime(), session.getEndTime());
         session.setStatus(SessionStatus.COMPLETED);
 
-        assertThat(service.record(COACH, 1, request(5, AttendanceStatus.ABSENT, 6, AttendanceStatus.ABSENT)).status())
+        assertThat(service.recordAttendance(COACH, 1,
+                request(5, AttendanceStatus.ABSENT, 6, AttendanceStatus.ABSENT)).status())
                 .isEqualTo(SessionStatus.COMPLETED);
     }
 

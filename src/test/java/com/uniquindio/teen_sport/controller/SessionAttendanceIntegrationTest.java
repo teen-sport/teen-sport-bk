@@ -188,16 +188,15 @@ class SessionAttendanceIntegrationTest {
     }
 
     @Test
-    void attendanceCoversTheWholeRosterAndSavingAgainReplacesTheMarks() throws Exception {
+    void attendanceMustCoverTheWholeRosterAndOnlyTheGroupCoachRecordsIt() throws Exception {
         TestGuardian guardian = auth.newGuardian();
-        int first = activeAthlete(guardian.token(), YearMonth.from(today));
-        int second = activeAthlete(guardian.token(), YearMonth.from(today));
+        AttendanceSetup setup = attendanceSetup(guardian);
         int nextMonth = activeAthlete(guardian.token(), YearMonth.from(today).plusMonths(1));
         int pending = academy.newAthlete(guardian.token());
         academy.requestEnrollment(guardian.token(), pending, groupId, YearMonth.from(today).toString())
                 .andExpect(status().isCreated());
-        int sessionId = createSession(groupId, today, "05:00", "06:00");
-        String url = SESSIONS + "/" + sessionId + "/attendance";
+        String url = setup.url();
+        int first = setup.first();
 
         send(get(url), coach.token(), null)
                 .andExpect(status().isOk())
@@ -208,8 +207,9 @@ class SessionAttendanceIntegrationTest {
         send(get(url), auth.newCoachToken(), null).andExpect(status().isForbidden());
         send(get(url), guardian.token(), null).andExpect(status().isForbidden());
 
-        send(put(url), adminToken, marks(first, "PRESENT", second, "ABSENT")).andExpect(status().isForbidden());
-        send(put(url), auth.newCoachToken(), marks(first, "PRESENT", second, "ABSENT")).andExpect(status().isForbidden());
+        String valid = marks(first, "PRESENT", setup.second(), "ABSENT");
+        send(put(url), adminToken, valid).andExpect(status().isForbidden());
+        send(put(url), auth.newCoachToken(), valid).andExpect(status().isForbidden());
         send(put(url), coach.token(), "{\"records\":[{\"athleteId\":" + first + ",\"status\":\"PRESENT\"}]}")
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("INCOMPLETE_ATTENDANCE"));
@@ -220,19 +220,26 @@ class SessionAttendanceIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details[0].field").value("records"));
         send(put(url), coach.token(), "{\"records\":[]}").andExpect(status().isBadRequest());
+    }
 
-        send(put(url), coach.token(), marks(first, "PRESENT", second, "ABSENT"))
+    @Test
+    void savingAgainReplacesTheMarksAndTheHistoryIsLimitedToEachScope() throws Exception {
+        TestGuardian guardian = auth.newGuardian();
+        AttendanceSetup setup = attendanceSetup(guardian);
+        int first = setup.first();
+
+        send(put(setup.url()), coach.token(), marks(first, "PRESENT", setup.second(), "ABSENT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.attendanceRecorded").value(true));
-        send(put(url), coach.token(), marks(first, "ABSENT", second, "ABSENT"))
+        send(put(setup.url()), coach.token(), marks(first, "ABSENT", setup.second(), "ABSENT"))
                 .andExpect(status().isOk());
 
         send(get(RECORDS + "?groupId=" + groupId), guardian.token(), null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.content[*].status", not(hasItem("PRESENT"))))
-                .andExpect(jsonPath("$.content[0].sessionId").value(sessionId))
+                .andExpect(jsonPath("$.content[0].sessionId").value(setup.sessionId()))
                 .andExpect(jsonPath("$.content[0].athlete.lastNames").isNotEmpty())
                 .andExpect(jsonPath("$.content[0].recordedAt").isNotEmpty());
         send(get(RECORDS + "?groupId=" + groupId + "&athleteId=" + first + "&status=ABSENT&from=" + today
@@ -247,17 +254,24 @@ class SessionAttendanceIntegrationTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("INVALID_DATE_RANGE"));
 
-        send(put(SESSIONS + "/" + sessionId), coach.token(), updateJson(today.plusDays(1), "05:00", "06:00"))
+        send(put(SESSIONS + "/" + setup.sessionId()), coach.token(), updateJson(today.plusDays(1), "05:00", "06:00"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_STATE"));
+    }
+
+    @Test
+    void futureAndCancelledSessionsDoNotAcceptAttendance() throws Exception {
+        AttendanceSetup setup = attendanceSetup(auth.newGuardian());
+        String valid = marks(setup.first(), "PRESENT", setup.second(), "ABSENT");
+
         int future = createSession(groupId, today.plusDays(1), "05:00", "06:00");
-        send(put(SESSIONS + "/" + future + "/attendance"), coach.token(), marks(first, "PRESENT", second, "ABSENT"))
+        send(put(SESSIONS + "/" + future + "/attendance"), coach.token(), valid)
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("FUTURE_SESSION"));
         int cancelled = createSession(groupId, today, "07:00", "08:00");
         send(post(SESSIONS + "/" + cancelled + "/cancel"), coach.token(), "{\"reason\":\"Lluvia\"}")
                 .andExpect(status().isOk());
-        send(put(SESSIONS + "/" + cancelled + "/attendance"), coach.token(), marks(first, "PRESENT", second, "ABSENT"))
+        send(put(SESSIONS + "/" + cancelled + "/attendance"), coach.token(), valid)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SESSION_CANCELLED"));
     }
@@ -352,6 +366,21 @@ class SessionAttendanceIntegrationTest {
                 () -> statusOf(send(put(url), coach.token(), marks(first, "ABSENT", second, "PRESENT"))));
         assertThat(saves).containsOnly(200);
         send(get(RECORDS + "?groupId=" + groupId), adminToken, null).andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /** Dos deportistas con matrícula vigente este mes y una sesión de hoy (05:00–06:00) del grupo. */
+    private AttendanceSetup attendanceSetup(TestGuardian guardian) throws Exception {
+        int first = activeAthlete(guardian.token(), YearMonth.from(today));
+        int second = activeAthlete(guardian.token(), YearMonth.from(today));
+        int sessionId = createSession(groupId, today, "05:00", "06:00");
+        return new AttendanceSetup(first, second, sessionId);
+    }
+
+    private record AttendanceSetup(int first, int second, int sessionId) {
+
+        String url() {
+            return SESSIONS + "/" + sessionId + "/attendance";
+        }
     }
 
     /** Matrícula {@code ACTIVE} de un deportista nuevo del acudiente, iniciada en el mes indicado. */

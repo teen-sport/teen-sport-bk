@@ -104,7 +104,8 @@ public class AttendanceService {
      * @throws FieldValidationException 400 si un deportista aparece más de una vez
      */
     @Transactional
-    public AttendanceRoster record(AuthenticatedUser user, Integer sessionId, RecordAttendanceRequest request) {
+    public AttendanceRoster recordAttendance(AuthenticatedUser user, Integer sessionId,
+                                             RecordAttendanceRequest request) {
         TrainingSession session = sessionRepository.findLockedById(sessionId).orElseThrow(AttendanceService::notFound);
         accessPolicy.requireCoachOf(user, session.getGroup());
         requireRecordable(session);

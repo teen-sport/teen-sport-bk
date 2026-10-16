@@ -186,7 +186,7 @@ public class SessionService {
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             LocalDate day = date;
             schedules.stream()
-                    .filter(schedule -> schedule.getDayOfWeek() == day.getDayOfWeek())
+                    .filter(schedule -> schedule.getDayOfWeek().equals(day.getDayOfWeek()))
                     .map(schedule -> new TrainingSession(group, day, schedule.getStartTime(), schedule.getEndTime()))
                     .forEach(planned::add);
         }

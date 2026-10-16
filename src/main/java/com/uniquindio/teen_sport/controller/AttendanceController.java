@@ -68,7 +68,7 @@ public class AttendanceController {
     @PreAuthorize("hasRole('COACH')")
     public AttendanceRoster recordSessionAttendance(@PathVariable Integer id,
                                                     @Valid @RequestBody RecordAttendanceRequest request) {
-        return attendanceService.record(currentUserService.current(), id, request);
+        return attendanceService.recordAttendance(currentUserService.current(), id, request);
     }
 
     /**

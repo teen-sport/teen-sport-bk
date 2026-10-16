@@ -2,6 +2,7 @@ package com.uniquindio.teen_sport.security;
 
 import static com.uniquindio.teen_sport.config.WebConfig.API_PREFIX;
 
+import com.uniquindio.teen_sport.entity.RoleName;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,6 +42,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final String ADMIN = RoleName.ADMIN.name();
+    private static final String COACH = RoleName.COACH.name();
+    private static final String GUARDIAN = RoleName.GUARDIAN.name();
 
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             API_PREFIX + "/auth/login",
@@ -166,23 +171,23 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(OWN_ACCOUNT_ENDPOINTS).authenticated()
-                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(ADMIN_ENDPOINTS).hasRole(ADMIN)
                         .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
-                        .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole("ADMIN")
-                        .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
-                        .requestMatchers(ENROLLMENT_REVIEW_ENDPOINTS).hasRole("ADMIN")
-                        .requestMatchers(PAYMENT_ADMIN_ENDPOINTS).hasRole("ADMIN")
-                        .requestMatchers(PAYMENT_REPORT_ENDPOINT).hasRole("GUARDIAN")
-                        .requestMatchers(PAYMENT_HISTORY_ENDPOINT).hasAnyRole("ADMIN", "GUARDIAN")
-                        .requestMatchers(ENROLLMENT_ENDPOINTS).hasAnyRole("ADMIN", "GUARDIAN")
-                        .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
-                        .requestMatchers(GROUP_ENDPOINTS).hasRole("ADMIN")
-                        .requestMatchers(SCHEDULE_ENDPOINTS).hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, SESSION_ATTENDANCE_ENDPOINT).hasAnyRole("ADMIN", "COACH")
-                        .requestMatchers(SESSION_ATTENDANCE_ENDPOINT).hasRole("COACH")
-                        .requestMatchers(HttpMethod.GET, SESSION_ENDPOINTS).hasAnyRole("ADMIN", "COACH", "GUARDIAN")
-                        .requestMatchers(SESSION_ENDPOINTS).hasAnyRole("ADMIN", "COACH")
-                        .requestMatchers(ATTENDANCE_HISTORY_ENDPOINT).hasAnyRole("ADMIN", "COACH", "GUARDIAN")
+                        .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole(ADMIN, GUARDIAN)
+                        .requestMatchers(ENROLLMENT_REVIEW_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(PAYMENT_ADMIN_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(PAYMENT_REPORT_ENDPOINT).hasRole(GUARDIAN)
+                        .requestMatchers(PAYMENT_HISTORY_ENDPOINT).hasAnyRole(ADMIN, GUARDIAN)
+                        .requestMatchers(ENROLLMENT_ENDPOINTS).hasAnyRole(ADMIN, GUARDIAN)
+                        .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole(ADMIN, COACH)
+                        .requestMatchers(GROUP_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(SCHEDULE_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(HttpMethod.GET, SESSION_ATTENDANCE_ENDPOINT).hasAnyRole(ADMIN, COACH)
+                        .requestMatchers(SESSION_ATTENDANCE_ENDPOINT).hasRole(COACH)
+                        .requestMatchers(HttpMethod.GET, SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH, GUARDIAN)
+                        .requestMatchers(SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH)
+                        .requestMatchers(ATTENDANCE_HISTORY_ENDPOINT).hasAnyRole(ADMIN, COACH, GUARDIAN)
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
