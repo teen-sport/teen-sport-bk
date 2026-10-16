@@ -10,7 +10,7 @@
 - Los roles `COACH` y `ADMIN` los crea un administrador; el registro público está limitado a acudientes.
 
 ## Deportistas
-- `E1–E4`: registrar, listar, consultar y actualizar deportistas.
+- `E1–E4`: registrar, listar, consultar y actualizar deportistas. La edad se calcula con la fecha local de la academia (`America/Bogota`); al editar solo se valida si cambia la fecha de nacimiento. Un administrador solo puede registrar deportistas para un acudiente activo.
 - La edad debe estar entre 12 y 17 años en la fecha de la solicitud, según contrato.
 - Los acudientes solo pueden gestionar deportistas asociados a su cuenta; el administrador puede operar en nombre de un acudiente con las reglas documentadas.
 - No existe DELETE de deportistas en el contrato; la salida de la academia se representa mediante la gestión de la matrícula.
@@ -18,7 +18,7 @@
 ## Disponibilidad y matrículas
 - `E5`: consultar grupos activos de disciplinas activas y disponibilidad para un periodo.
 - El `period` de una matrícula es su mes de inicio; la matrícula sigue vigente mes a mes hasta ser rechazada o cancelada.
-- Los cupos ocupados de un mes cuentan las matrículas `PENDING_REVIEW` y `ACTIVE` con mes de inicio igual o anterior.
+- Los cupos ocupados de un mes cuentan las matrículas `PENDING_REVIEW` y `ACTIVE` con mes de inicio igual o anterior. Como cada matrícula vigente ocupa cupo en todos los meses siguientes, para reservar (E6) se compara la capacidad con todas las matrículas vigentes del grupo, y E5 informa como disponibles solo los cupos que aún se pueden reservar.
 - `E6`: solicitar matrícula; estado inicial `PENDING_REVIEW`, pago inicial `OVERDUE` y reserva de cupo bajo bloqueo pesimista del grupo.
 - Un deportista no puede tener dos matrículas vigentes (`PENDING_REVIEW` o `ACTIVE`) en la misma disciplina, sin importar grupo ni mes de inicio (`DUPLICATE_ENROLLMENT`); sí en disciplinas distintas.
 - Si no hay cupos, no se crea matrícula, se intenta notificar por correo y se devuelve conflicto.
@@ -36,9 +36,9 @@
 - No implementar pasarela de pagos en línea.
 
 ## Disciplinas, grupos y horarios
-- `H1–H5`: listar, consultar, crear, actualizar y activar/desactivar disciplinas. La mensualidad debe ser positiva. No se puede desactivar una disciplina con grupos activos.
+- `H1–H5`: listar, consultar, crear, actualizar y activar/desactivar disciplinas. La mensualidad debe ser positiva. No se puede desactivar una disciplina con grupos activos. El nombre es único sin distinguir mayúsculas y quien no es administrador solo ve disciplinas activas.
 - `H6–H11`: listar, consultar, crear, actualizar, activar/desactivar grupos y asignar entrenador.
-- La capacidad de grupo está entre 1 y 15. El entrenador y la disciplina deben estar activos al crear el grupo. El grupo se almacena como `training_groups` por ser `groups` palabra reservada en MySQL 8.
+- La capacidad de grupo está entre 1 y 15. El entrenador y la disciplina deben estar activos al crear el grupo. El grupo se almacena en la tabla `groups` (la del MER y la base desplegada). Las franjas no pueden cruzarse dentro del grupo ni con las de otros grupos activos del entrenador; las franjas contiguas sí se permiten.
 - No reducir la capacidad por debajo de las matrículas vigentes (`PENDING_REVIEW` y `ACTIVE`) del grupo.
 - `H12–H14`: crear, actualizar y eliminar horarios del grupo conforme a las reglas del contrato.
 

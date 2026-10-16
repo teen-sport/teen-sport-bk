@@ -281,8 +281,8 @@ paths:
       summary: Activate or deactivate a user
       description: |
         **Roles:** ADMIN. An inactive user cannot log in; a token already issued expires on its own.
-        An admin cannot deactivate their own account (422 `CANNOT_DEACTIVATE_SELF`). `COACH_HAS_ACTIVE_GROUPS` (409)
-        applies once training groups exist (phase 3).
+        An admin cannot deactivate their own account (422 `CANNOT_DEACTIVATE_SELF`). A coach with `ACTIVE` groups cannot be
+        deactivated (409 `COACH_HAS_ACTIVE_GROUPS`).
       x-endpoint-id: U10
       x-roles: [ADMIN]
       x-error-codes: [NOT_FOUND, CANNOT_DEACTIVATE_SELF, COACH_HAS_ACTIVE_GROUPS]
@@ -359,6 +359,9 @@ paths:
       description: |
         **Roles:** GUARDIAN (own), ADMIN. `guardianId` is only sent by an admin; for a guardian it comes from the token.
         Age must be 12 to 17 on the request date, and the guardian must have accepted the data policy.
+        The request date is the academy's local date (`America/Bogota` by default). For an admin `guardianId` is
+        required and must be an active guardian; otherwise 400 `VALIDATION_ERROR` on `guardianId`.
+        `idNumber` is unique among athletes (409 `DUPLICATE_ATHLETE`).
       x-endpoint-id: E1
       x-roles: [GUARDIAN, ADMIN]
       x-error-codes: [VALIDATION_ERROR, AGE_OUT_OF_RANGE, DATA_POLICY_NOT_ACCEPTED, DUPLICATE_ATHLETE]
@@ -382,7 +385,9 @@ paths:
       tags: [Athletes]
       operationId: listAthletes
       summary: List athletes (paginated)
-      description: '**Roles:** ADMIN (all), GUARDIAN (only own, automatic).'
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (only own, automatic; `guardianId` is ignored).
+        Ordered by last names and first names. `q` matches first names, last names, full name or ID number.
       x-endpoint-id: E2
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: []
@@ -431,6 +436,8 @@ paths:
       summary: Update an athlete
       description: |
         **Roles:** ADMIN, GUARDIAN (own). There is no DELETE: leaving the academy means cancelling the enrollment.
+        The guardian never changes. The age range is checked only when `birthDate` changes, so an athlete who has
+        turned 18 can still be corrected.
       x-endpoint-id: E4
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, AGE_OUT_OF_RANGE, DUPLICATE_ATHLETE]
@@ -461,6 +468,8 @@ paths:
         **Roles:** ADMIN, GUARDIAN. Returns only `ACTIVE` groups of `ACTIVE` disciplines, with `occupiedSpots` and `availableSpots` for the period.
         Occupied spots count enrollments in `PENDING_REVIEW` and `ACTIVE` whose start `period` is on or before the requested period
         (an enrollment stays in force month to month from its start period until it is rejected or cancelled).
+        Because every in-force enrollment also takes a spot in all later months, `availableSpots` is `maxCapacity` minus all in-force
+        enrollments of the group (never negative): the spots that can still be reserved from that period on.
         This is the only endpoint guardians use to browse groups.
       x-endpoint-id: E5
       x-roles: [ADMIN, GUARDIAN]
@@ -493,7 +502,10 @@ paths:
         in force month to month until it is rejected or cancelled. Returns 409 `DUPLICATE_ENROLLMENT` when the athlete already has an
         in-force enrollment (`PENDING_REVIEW` or `ACTIVE`) in the same discipline, whatever its group or start period; to move to
         another group use E15. Enrollments in other disciplines are allowed.
-        When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409.
+        When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409
+        (the e-mail is sent once the mail adapter exists, phase 7). A spot is free when the group's in-force enrollments, whatever their
+        start period, are fewer than `maxCapacity`. Checks run in this order: athlete and group exist (404), ownership (403), age,
+        period, active group and discipline (422), duplicate and spots (409).
       x-endpoint-id: E6
       x-roles: [GUARDIAN, ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, AGE_OUT_OF_RANGE, PERIOD_IN_PAST, GROUP_INACTIVE, NO_AVAILABLE_SPOTS, DUPLICATE_ENROLLMENT]
@@ -518,7 +530,10 @@ paths:
       tags: [Enrollments]
       operationId: listEnrollments
       summary: List enrollments (paginated)
-      description: '**Roles:** ADMIN (all), GUARDIAN (own, automatic). Admin filters `paymentReported=true` to see families that reported a payment.'
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (own, automatic). Admin filters `paymentReported=true` to see families that reported a payment.
+        `period` returns the enrollments in force that month: start period on or before it and, unless `status` is given,
+        `PENDING_REVIEW` or `ACTIVE`. Sorted newest first.
       x-endpoint-id: E7
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: []
@@ -587,9 +602,12 @@ paths:
         **Roles:** ADMIN. Moves to `ACTIVE`, sets `confirmedAt`, and sends `ENROLLMENT_CONFIRMED` after commit (not awaited, RNF-04).
         `groupId` (optional) assigns another group of the same discipline; `payment` (optional, same body as E17) registers the payment
         in the same call, under the same rules as E17, and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
+        If the payment breaks a rule nothing is confirmed. The e-mail is sent once the mail adapter exists (phase 7). Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
+        the current group must still be active (422 `GROUP_INACTIVE`); another group must be of the same discipline, active and with a
+        free spot.
       x-endpoint-id: E12
       x-roles: [ADMIN]
-      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, INSUFFICIENT_AMOUNT, FUTURE_DATE]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
       requestBody:
         required: false
         content:
@@ -616,7 +634,7 @@ paths:
       summary: Reject an enrollment
       description: |
         **Roles:** ADMIN. Only from `PENDING_REVIEW`. Terminal state `REJECTED`; frees the spot;
-        sends `ENROLLMENT_REJECTED` with the reason.
+        sends `ENROLLMENT_REJECTED` with the reason (once the mail adapter exists, phase 7). The reason is stored as `reviewNotes`.
       x-endpoint-id: E13
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
@@ -646,7 +664,8 @@ paths:
       description: |
         **Roles:** GUARDIAN (own, only while the enrollment is not `ACTIVE`), ADMIN (any non-terminal enrollment).
         Terminal state `CANCELLED`; frees the spot. Counts as abandonment in report R1.
-        A guardian trying to cancel an `ACTIVE` enrollment gets 403 `ACCESS_DENIED`.
+        A guardian trying to cancel an `ACTIVE` enrollment gets 403 `ACCESS_DENIED`. A `REJECTED` or `CANCELLED` enrollment returns
+        409 `INVALID_STATE`. A non-blank `reason` is stored as `reviewNotes`.
       x-endpoint-id: E14
       x-roles: [GUARDIAN, ADMIN]
       x-error-codes: [ACCESS_DENIED, NOT_FOUND, INVALID_STATE]
@@ -674,7 +693,8 @@ paths:
       summary: Move an enrollment to another group of the same discipline
       description: |
         **Roles:** ADMIN. Same discipline; the enrollment keeps its start period. The spot in the old group is released and one in the new group is reserved.
-        Past sessions and attendance are not touched.
+        Past sessions and attendance are not touched. Only in-force enrollments (`PENDING_REVIEW` or `ACTIVE`) can move
+        (409 `INVALID_STATE`); the status does not change. Sending the current group changes nothing.
       x-endpoint-id: E15
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS]
@@ -707,6 +727,8 @@ paths:
         **Roles:** GUARDIAN (own). Only sets `paymentReported=true` so the admin can find it. It does NOT change `paymentStatus`:
         only the admin can, through E17 or E12. Returns 409 `PAYMENT_ALREADY_REGISTERED` when the enrollment already has a payment
         whose `paymentDate` falls in the month of the reported `paymentDate` (or the current month when it is omitted).
+        The reported `paymentDate` is only used for that check; the enrollment stores the moment of the report and the `notes`
+        (a new report replaces the previous note). Only while the enrollment is `PENDING_REVIEW` or `ACTIVE` (409 `INVALID_STATE`).
       x-endpoint-id: E16
       x-roles: [GUARDIAN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED]
@@ -738,7 +760,8 @@ paths:
         `amountPaid` must be at least the discipline `monthlyFee`. Only while the enrollment is `PENDING_REVIEW` or `ACTIVE`.
         An enrollment can have several payments, at most one per calendar month: the month a payment covers is the month of its
         `paymentDate`, and the payment with the most recent `paymentDate` is the latest one. A second payment whose `paymentDate`
-        falls in a month that already has a payment returns 409 `PAYMENT_ALREADY_REGISTERED`.
+        falls in a month that already has a payment returns 409 `PAYMENT_ALREADY_REGISTERED`. `paymentDate` cannot be after today in
+        the academy time zone (422 `FUTURE_DATE`); it may be before the enrollment start month. `registeredBy.id` is the admin user id.
       x-endpoint-id: E17
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
@@ -768,7 +791,8 @@ paths:
       summary: Manually mark an enrollment as overdue
       description: |
         **Roles:** ADMIN. Only `OVERDUE` is accepted. `UP_TO_DATE` is reached only by registering a payment (E17 or E12).
-        There is no automatic job (ADR-08).
+        There is no automatic job (ADR-08). Accepted in any enrollment status; marking an enrollment that is already `OVERDUE`
+        changes nothing. Any other value than `OVERDUE`/`UP_TO_DATE` is a 400 `VALIDATION_ERROR`.
       x-endpoint-id: E18
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, USE_PAYMENT_REGISTRATION]
@@ -793,7 +817,9 @@ paths:
       tags: [Payments]
       operationId: listPayments
       summary: Payment history (paginated)
-      description: '**Roles:** ADMIN (all), GUARDIAN (own, automatic).'
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (own, automatic). Ordered by `paymentDate` descending, then `id` descending. `from` and `to`
+        filter `paymentDate` and are inclusive; `from` after `to` returns 400 `VALIDATION_ERROR`.
       x-endpoint-id: E19
       x-roles: [ADMIN, GUARDIAN]
       x-error-codes: []
@@ -826,7 +852,9 @@ paths:
       tags: [Disciplines]
       operationId: listDisciplines
       summary: List disciplines
-      description: '**Roles:** ADMIN, COACH, GUARDIAN. Non-admins only see `ACTIVE` disciplines.'
+      description: |
+        **Roles:** ADMIN, COACH, GUARDIAN. Non-admins only see `ACTIVE` disciplines; for them the `status` filter is ignored.
+        Ordered by name.
       x-endpoint-id: H1
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: []
@@ -847,7 +875,9 @@ paths:
       tags: [Disciplines]
       operationId: createDiscipline
       summary: Create a discipline
-      description: '**Roles:** ADMIN. `monthlyFee` must be greater than 0; no range is enforced. Created `ACTIVE`.'
+      description: |
+        **Roles:** ADMIN. `monthlyFee` must be greater than 0 and fit `DECIMAL(10,2)`. Created `ACTIVE`.
+        `name` is unique ignoring case (409 `DUPLICATE_DISCIPLINE`).
       x-endpoint-id: H3
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, DUPLICATE_DISCIPLINE]
@@ -916,7 +946,8 @@ paths:
       tags: [Disciplines]
       operationId: updateDisciplineStatus
       summary: Activate or deactivate a discipline
-      description: '**Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups.'
+      description: |
+        **Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups (409 `DISCIPLINE_HAS_ACTIVE_GROUPS`).
       x-endpoint-id: H5
       x-roles: [ADMIN]
       x-error-codes: [NOT_FOUND, DISCIPLINE_HAS_ACTIVE_GROUPS]
@@ -973,7 +1004,8 @@ paths:
       description: |
         **Roles:** ADMIN. `maxCapacity` is 1 to 15. The coach must be `ACTIVE`; the discipline must be `ACTIVE`.
         Created `ACTIVE`, without schedules (add them with H12).
-        Persisted in the table `training_groups` because `groups` is a reserved word in MySQL 8.
+        Persisted in the table `groups` (the ER model name, used by the deployed PostgreSQL database).
+        A coach or discipline that does not exist returns 404; an inactive one returns 422.
       x-endpoint-id: H8
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_MAX_CAPACITY, INVALID_COACH, DISCIPLINE_INACTIVE]
@@ -1045,10 +1077,14 @@ paths:
       tags: [Groups]
       operationId: updateGroupStatus
       summary: Activate or deactivate a group
-      description: '**Roles:** ADMIN. Deactivating is refused while the group has live enrollments or future sessions.'
+      description: |
+        **Roles:** ADMIN. Deactivating is refused (409 `GROUP_HAS_ACTIVITY`) while the group has in-force enrollments
+        (`PENDING_REVIEW` or `ACTIVE`) or future sessions (`SCHEDULED` with date today or later).
+        Reactivating is refused (409 `COACH_SCHEDULE_CONFLICT`) if any of the group's slots overlaps a slot of another
+        `ACTIVE` group of the same coach, since slots of inactive groups do not block the coach.
       x-endpoint-id: H10
       x-roles: [ADMIN]
-      x-error-codes: [NOT_FOUND, GROUP_HAS_ACTIVITY]
+      x-error-codes: [NOT_FOUND, GROUP_HAS_ACTIVITY, COACH_SCHEDULE_CONFLICT]
       requestBody:
         required: true
         content:
@@ -1073,7 +1109,7 @@ paths:
       summary: Assign or change the group coach
       description: |
         **Roles:** ADMIN. The coach must be `ACTIVE` and must not have a schedule overlapping the group's schedules.
-        Future sessions of the group move to the new coach (a session inherits the coach of its group).
+        Future sessions of the group (`SCHEDULED` with date today or later) move to the new coach; earlier ones keep the coach who gave them.
       x-endpoint-id: H11
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_COACH, COACH_SCHEDULE_CONFLICT]
@@ -1103,7 +1139,8 @@ paths:
       summary: Add a weekly schedule slot to a group
       description: |
         **Roles:** ADMIN. `endTime` must be after `startTime`. Rejected if it overlaps another slot of the group
-        or another slot of the same coach (`SCHEDULE_CONFLICT`).
+        or another slot of the same coach in an `ACTIVE` group (`SCHEDULE_CONFLICT`). Contiguous slots (16:00–17:00 and
+        17:00–18:00) do not overlap. Slots can be managed in inactive groups. Times use `HH:mm`.
       x-endpoint-id: H12
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_TIME_RANGE, SCHEDULE_CONFLICT]
@@ -1174,6 +1211,9 @@ paths:
       description: |
         **Roles:** ADMIN, COACH (own group). The date cannot be in the past. It does not have to match a group schedule (extra sessions are allowed).
         A group cannot have two sessions with the same date and start time. Created in `SCHEDULED`. No e-mail is sent.
+        "In the past" compares only the date in the academy time zone: today is accepted even if the hour has passed.
+        The session is given by the current coach of the group. Validation order: 404, 403, `GROUP_INACTIVE`,
+        `INVALID_TIME_RANGE`, `DATE_IN_PAST`, `DUPLICATE_SESSION`.
       x-endpoint-id: A1
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
@@ -1199,9 +1239,11 @@ paths:
       operationId: listSessions
       summary: Session calendar
       description: |
-        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (groups where one of their athletes has an `ACTIVE` enrollment;
-        each item includes `athletes`).
-        `from` and `to` default to the current week.
+        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (groups where one of their athletes has an `ACTIVE` enrollment
+        whose start `period` is on or before the month of the session; each item includes `athletes`).
+        Without dates the range is the current week (Monday to Sunday, academy time zone); with only `from` it is the seven days
+        starting at `from`; with only `to`, the seven days ending at `to`. The range covers at most 62 days, both ends included
+        (422 `INVALID_DATE_RANGE`). `athleteId` keeps the sessions of groups where that athlete has an `ACTIVE` enrollment already started.
       x-endpoint-id: A3
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: [INVALID_DATE_RANGE]
@@ -1241,8 +1283,10 @@ paths:
       operationId: generateSessions
       summary: Generate sessions from the group's weekly schedules
       description: |
-        **Roles:** ADMIN, COACH (own group). Creates one session per schedule slot and date in the range (max 62 days, proposed). Duplicates are skipped.
-        With `notify=true` every guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`.
+        **Roles:** ADMIN, COACH (own group). Creates one session per schedule slot and date in the range (at most 62 days, both ends
+        included). Sessions with the same date and start time as an existing one are skipped. `dateFrom` cannot be before today.
+        With `notify=true` every guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`
+        (from phase 7; until then `notify` is accepted and no e-mail is sent). `sessions` holds only the created sessions.
       x-endpoint-id: A2
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, GROUP_WITHOUT_SCHEDULES, INVALID_DATE_RANGE, DATE_IN_PAST]
@@ -1286,7 +1330,9 @@ paths:
       tags: [Sessions]
       operationId: updateSession
       summary: Reschedule a session
-      description: '**Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions. Sends `SCHEDULE_CHANGE` to the guardians of the group.'
+      description: |
+        **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions (409 `INVALID_STATE`). Same date, time and duplicate rules as A1,
+        ignoring the session itself. `notes` replaces the previous notes. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
       x-endpoint-id: A5
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
@@ -1316,7 +1362,7 @@ paths:
       summary: Cancel a session
       description: |
         **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions. The reason is stored in `notes`. Cancelled sessions do not count
-        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group.
+        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
       x-endpoint-id: A6
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
@@ -1346,7 +1392,8 @@ paths:
       summary: Session roster with saved marks
       description: |
         **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose start `period`
-        is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked.
+        is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked. Marks of athletes
+        that left the roster later are kept in the history (A9) but are not listed here.
       x-endpoint-id: A7
       x-roles: [COACH, ADMIN]
       x-error-codes: [NOT_FOUND]
@@ -1365,7 +1412,9 @@ paths:
       summary: Record attendance for the whole roster
       description: |
         **Roles:** COACH only (assigned to the group). One call with the whole roster; saving again overwrites the previous marks (upsert).
-        Marks the session `COMPLETED`. Cannot be done for a future session or a cancelled one.
+        Marks the session `COMPLETED`. Cannot be done for a future session (date after today in the academy time zone; today is
+        allowed, 422 `FUTURE_SESSION`) or a cancelled one (409 `SESSION_CANCELLED`). An athlete outside the roster returns 422
+        `ATHLETE_NOT_IN_ROSTER`; a missing one, 422 `INCOMPLETE_ATTENDANCE`; a repeated one, 400 `VALIDATION_ERROR` on `records`.
       x-endpoint-id: A8
       x-roles: [COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INCOMPLETE_ATTENDANCE, ATHLETE_NOT_IN_ROSTER, FUTURE_SESSION, SESSION_CANCELLED]
@@ -1391,7 +1440,9 @@ paths:
       tags: [Attendance]
       operationId: listAttendanceRecords
       summary: Attendance history (paginated)
-      description: '**Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (own athletes, automatic).'
+      description: |
+        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (own athletes, automatic). Ordered by session date and start
+        time descending. `from` and `to` filter the session date and are inclusive; `from` after `to` returns 422 `INVALID_DATE_RANGE`.
       x-endpoint-id: A9
       x-roles: [ADMIN, COACH, GUARDIAN]
       x-error-codes: [INVALID_DATE_RANGE]
@@ -1981,7 +2032,7 @@ components:
         birthDate: { type: string, format: date }
         age: { type: integer, description: Computed on the response date. }
         gender: { type: string, nullable: true }
-        hasActiveEnrollment: { type: boolean }
+        hasActiveEnrollment: { type: boolean, description: The athlete has an enrollment in `PENDING_REVIEW` or `ACTIVE`. }
     AthletePage:
       allOf:
         - $ref: '#/components/schemas/PageMetadata'
@@ -2010,8 +2061,8 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Schedule' }
         maxCapacity: { type: integer }
-        occupiedSpots: { type: integer }
-        availableSpots: { type: integer }
+        occupiedSpots: { type: integer, description: In-force enrollments that started on or before the period. }
+        availableSpots: { type: integer, description: '`maxCapacity` minus all in-force enrollments, never negative.' }
     CreateEnrollmentRequest:
       type: object
       required: [athleteId, groupId, period]
@@ -2073,7 +2124,7 @@ components:
       properties:
         amountPaid: { type: number, multipleOf: 0.01, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, description: 'COP, DECIMAL(10,2).', example: 120000 }
         paymentDate: { type: string, format: date, description: Cannot be in the future. }
-        receiptReference: { type: string, maxLength: 50 }
+        receiptReference: { type: string, maxLength: 50, description: 'The MER column allows 100; the contract keeps 50.' }
         notes: { type: string, maxLength: 255 }
     PaymentStatusRequest:
       type: object

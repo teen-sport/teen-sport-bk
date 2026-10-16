@@ -57,6 +57,18 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Campo inválido detectado por un caso de uso.
+     *
+     * @param ex      excepción con el campo rechazado
+     * @param request solicitud en curso
+     * @return 400 {@code VALIDATION_ERROR} con el campo en {@code details}
+     */
+    @ExceptionHandler(FieldValidationException.class)
+    public ResponseEntity<ApiError> handleInvalidField(FieldValidationException ex, HttpServletRequest request) {
+        return validationError(List.of(new ApiErrorDetail(ex.getField(), ex.getMessage())), request);
+    }
+
+    /**
      * Cuerpo JSON que no cumple las restricciones de Bean Validation.
      *
      * @param ex      excepción de validación del cuerpo

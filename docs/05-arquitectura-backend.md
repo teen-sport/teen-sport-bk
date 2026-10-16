@@ -45,6 +45,7 @@ Variables de entorno de seguridad:
 
 | Variable | Obligatoria | Uso |
 |---|---|---|
+| `APP_TIME_ZONE` | No (`America/Bogota`) | Zona horaria de la academia para las fechas de negocio (edad de los deportistas, periodos). Una zona inválida impide arrancar. |
 | `DB_DDL_AUTO` | No (`validate`) | `validate` no modifica el esquema (bases compartidas o remotas); `update` lo crea y amplía (solo base local). |
 | `JWT_SECRET` | Sí | Secreto HS256 de los JWT, mínimo 32 bytes. Sin él la aplicación no arranca. |
 | `JWT_EXPIRATION_SECONDS` | No (3600) | Vigencia de los tokens. |

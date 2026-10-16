@@ -2,6 +2,7 @@ package com.uniquindio.teen_sport.security;
 
 import static com.uniquindio.teen_sport.config.WebConfig.API_PREFIX;
 
+import com.uniquindio.teen_sport.entity.RoleName;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,6 +43,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final String ADMIN = RoleName.ADMIN.name();
+    private static final String COACH = RoleName.COACH.name();
+    private static final String GUARDIAN = RoleName.GUARDIAN.name();
+
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             API_PREFIX + "/auth/login",
             API_PREFIX + "/users/register"
@@ -60,6 +65,86 @@ public class SecurityConfig {
             API_PREFIX + "/coaches",
             API_PREFIX + "/guardians"
     };
+
+    /** Catálogo de disciplinas (H1–H5): lectura para cualquier rol, escritura solo {@code ADMIN}. */
+    private static final String[] DISCIPLINE_ENDPOINTS = {
+            API_PREFIX + "/disciplines",
+            API_PREFIX + "/disciplines/**"
+    };
+
+    /** Deportistas (E1–E4): administradores y acudientes; la propiedad se comprueba en el servicio. */
+    private static final String[] ATHLETE_ENDPOINTS = {
+            API_PREFIX + "/athletes",
+            API_PREFIX + "/athletes/**"
+    };
+
+    /**
+     * Revisión de matrículas (E12, E13, E15): solo {@code ADMIN}. Debe evaluarse antes que
+     * {@link #ENROLLMENT_ENDPOINTS}.
+     */
+    private static final String[] ENROLLMENT_REVIEW_ENDPOINTS = {
+            API_PREFIX + "/enrollments/*/confirm",
+            API_PREFIX + "/enrollments/*/reject",
+            API_PREFIX + "/enrollments/*/group"
+    };
+
+    /**
+     * Registro de pagos y marca de mora (E17, E18): solo {@code ADMIN}. Debe evaluarse antes que
+     * {@link #ENROLLMENT_ENDPOINTS}.
+     */
+    private static final String[] PAYMENT_ADMIN_ENDPOINTS = {
+            API_PREFIX + "/enrollments/*/payments",
+            API_PREFIX + "/enrollments/*/payment-status"
+    };
+
+    /**
+     * Reporte de pago (E16): solo {@code GUARDIAN}, sobre sus matrículas. Debe evaluarse antes que
+     * {@link #ENROLLMENT_ENDPOINTS}.
+     */
+    private static final String PAYMENT_REPORT_ENDPOINT = API_PREFIX + "/enrollments/*/payment-report";
+
+    /** Historial de pagos (E19): administradores y acudientes; la propiedad se aplica en el servicio. */
+    private static final String PAYMENT_HISTORY_ENDPOINT = API_PREFIX + "/payments";
+
+    /**
+     * Disponibilidad y matrículas (E5–E8, E14): administradores y acudientes; la propiedad se comprueba
+     * en el servicio.
+     */
+    private static final String[] ENROLLMENT_ENDPOINTS = {
+            API_PREFIX + "/availability",
+            API_PREFIX + "/enrollments",
+            API_PREFIX + "/enrollments/**"
+    };
+
+    /** Grupos (H6–H12): lectura para administradores y entrenadores; escritura solo {@code ADMIN}. */
+    private static final String[] GROUP_ENDPOINTS = {
+            API_PREFIX + "/groups",
+            API_PREFIX + "/groups/**"
+    };
+
+    /** Franjas ya creadas (H13, H14): solo {@code ADMIN}. */
+    private static final String[] SCHEDULE_ENDPOINTS = {
+            API_PREFIX + "/schedules",
+            API_PREFIX + "/schedules/**"
+    };
+
+    /**
+     * Lista y registro de asistencia (A7, A8): consulta {@code ADMIN} y {@code COACH}; registro solo
+     * {@code COACH}. Debe evaluarse antes que {@link #SESSION_ENDPOINTS}.
+     */
+    private static final String SESSION_ATTENDANCE_ENDPOINT = API_PREFIX + "/sessions/*/attendance";
+
+    /**
+     * Sesiones (A1–A6): lectura para los tres roles; programación para {@code ADMIN} y {@code COACH}. El
+     * alcance de cada rol se aplica en el servicio.
+     */
+    private static final String[] SESSION_ENDPOINTS = {
+            API_PREFIX + "/sessions",
+            API_PREFIX + "/sessions/**"
+    };
+
+    /** Historial de asistencia (A9): los tres roles; el alcance se aplica en el servicio. */
+    private static final String ATTENDANCE_HISTORY_ENDPOINT = API_PREFIX + "/attendance-records";
 
     private static final String[] PUBLIC_ENDPOINTS = {
             "/actuator/health", "/actuator/health/**",
@@ -86,7 +171,23 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(OWN_ACCOUNT_ENDPOINTS).authenticated()
-                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
+                        .requestMatchers(ADMIN_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(HttpMethod.GET, DISCIPLINE_ENDPOINTS).authenticated()
+                        .requestMatchers(DISCIPLINE_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(ATHLETE_ENDPOINTS).hasAnyRole(ADMIN, GUARDIAN)
+                        .requestMatchers(ENROLLMENT_REVIEW_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(PAYMENT_ADMIN_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(PAYMENT_REPORT_ENDPOINT).hasRole(GUARDIAN)
+                        .requestMatchers(PAYMENT_HISTORY_ENDPOINT).hasAnyRole(ADMIN, GUARDIAN)
+                        .requestMatchers(ENROLLMENT_ENDPOINTS).hasAnyRole(ADMIN, GUARDIAN)
+                        .requestMatchers(HttpMethod.GET, GROUP_ENDPOINTS).hasAnyRole(ADMIN, COACH)
+                        .requestMatchers(GROUP_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(SCHEDULE_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(HttpMethod.GET, SESSION_ATTENDANCE_ENDPOINT).hasAnyRole(ADMIN, COACH)
+                        .requestMatchers(SESSION_ATTENDANCE_ENDPOINT).hasRole(COACH)
+                        .requestMatchers(HttpMethod.GET, SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH, GUARDIAN)
+                        .requestMatchers(SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH)
+                        .requestMatchers(ATTENDANCE_HISTORY_ENDPOINT).hasAnyRole(ADMIN, COACH, GUARDIAN)
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))

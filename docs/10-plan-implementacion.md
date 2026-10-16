@@ -30,17 +30,33 @@ Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3
 - Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.
 - HU29 integrada en `development` (PR #12): U3 `GET /users/me`, U4 `PUT /users/me` (reemplazo completo; campos de otro rol ignorados), U5 `PUT /users/me/password`; identidad tomada del JWT (`CurrentUserService`); `RoleProfileResolver` compartido con el login. `./gradlew check`: 109 pruebas en verde.
 - HU30 implementada en `feature/HU30/user-administration` (pendiente de revisión y PR): U6 listado paginado con filtros y búsqueda, U7 detalle, U8 creación de `ADMIN`/`COACH`, U9 edición, U10 activación/desactivación, U11 entrenadores, U12 acudientes; autorización `ADMIN` en el filtro y con `@PreAuthorize`; carga en bloque de perfiles para evitar N+1; `AccountCreator` y `ProfileEditor` compartidos con U2, U4 y el administrador inicial. `./gradlew check`: 147 pruebas en verde.
-- Pendiente para la Fase 3: `COACH_HAS_ACTIVE_GROUPS` en U10.
+- `COACH_HAS_ACTIVE_GROUPS` en U10: cerrado en HU33.
 
 ## Fase 2 — Deportistas y catálogos
 - Perfiles de deportistas.
 - Disciplinas y reglas de estado.
 - DTO, validaciones y filtros de consulta.
 
+Se desarrolla por historias de usuario: HU32 (H1–H5, disciplinas) y HU34 (E1–E4, deportistas).
+
+**Estado (2026-10-12): en curso.**
+- HU32 integrada en `development` (PR #17): entidad `disciplines`, H1–H5, nombre único sin distinguir mayúsculas, mensualidad `DECIMAL(10,2)` > 0, listado de solo activas para no administradores, escritura solo `ADMIN`. `./gradlew check`: 164 pruebas en verde.
+- Decisiones para HU34: edad calculada con la zona de la academia (`America/Bogota`, configurable); en E4 la edad solo se valida si cambia `birthDate`; un administrador no puede registrar deportistas para un acudiente inactivo.
+- HU34 implementada en `feature/HU34/athlete-management` (pendiente de revisión y PR): entidad `athletes`; E1–E4 con propiedad por acudiente (`AthleteAccessPolicy`), edad 12–17 con la fecha local de la academia (`AcademyCalendar`, `APP_TIME_ZONE`), documento único, acudiente activo obligatorio para el administrador. `./gradlew check`: 196 pruebas en verde.
+- `DISCIPLINE_HAS_ACTIVE_GROUPS` en H5: cerrado en HU33.
+- Pendiente para la Fase 4: calcular `hasActiveEnrollment` de los deportistas con las matrículas.
+
 ## Fase 3 — Grupos y horarios
 - Grupos y asignación de entrenador.
 - Capacidad y validación de entrenador/disciplina activos.
 - Horarios semanales.
+
+Se desarrolla en una sola historia de usuario: HU33 (H6–H14).
+
+**Estado (2026-10-13): integrada en `development` (PR #19).**
+- HU33: entidades `groups` (nombre físico decidido el 2026-10-13) y `schedules`; H6–H14; propiedad de grupos para entrenadores (`GroupAccessPolicy`); detección de cruces (`ScheduleConflictChecker`, solo grupos activos, franjas contiguas permitidas) con bloqueo pesimista del grupo y del entrenador; reactivar un grupo (H10) comprueba cruces con los demás grupos activos del entrenador (`COACH_SCHEDULE_CONFLICT`, añadido al contrato); cierre de `COACH_HAS_ACTIVE_GROUPS` (U10) y `DISCIPLINE_HAS_ACTIVE_GROUPS` (H5). Mockito pasa a cargarse como `-javaagent`. `./gradlew check`: 245 pruebas en verde.
+- `CAPACITY_BELOW_OCCUPIED` (H9) y matrículas vigentes en `GROUP_HAS_ACTIVITY` (H10): cerrados en HU35.
+- Sesiones futuras en `GROUP_HAS_ACTIVITY` (H10) y su traspaso al nuevo entrenador (H11): cerrados en HU39 (Fase 6).
 
 ## Fase 4 — Matrículas y disponibilidad
 - Disponibilidad por periodo.
@@ -48,15 +64,53 @@ Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3
 - Confirmación, rechazo, cancelación y cambio de grupo.
 - Pruebas de transacciones y consistencia.
 
+Se desarrolla en dos historias de usuario: HU35 Solicitud de matrícula (E5–E8, más los cierres de H9, H10 y `hasActiveEnrollment`) y HU37 Revisión y ciclo de la matrícula (E12–E15).
+
+Decisiones (2026-10-13):
+- Cupos: una matrícula vigente ocupa cupo desde su mes de inicio en adelante, así que E6, H9 (y E12/E15 en HU37) validan contra todas las matrículas vigentes del grupo. En E5, `occupiedSpots` cuenta las que empezaron en el periodo o antes y `availableSpots` es la capacidad menos todas las vigentes (mínimo 0).
+- Filtro `period` de E7: matrículas vigentes en ese mes (inicio igual o anterior y, sin filtro de estado, `PENDING_REVIEW` o `ACTIVE`).
+- El motivo opcional de E14 se guarda en `review_notes` (HU37).
+- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 7. Pago dentro de E12: cerrado en HU36 (Fase 5).
+
+**Estado (2026-10-14): HU35 (PR #20) y HU37 (PR #21) integradas en `development`.**
+- HU35: entidad `enrollments` (sin las columnas de soportes documentales); E5 `GET /availability`, E6 `POST /enrollments`, E7 `GET /enrollments`, E8 `GET /enrollments/{id}`; cupos en `SpotCounter` (una consulta agrupada para E5); E6 bloquea el deportista y luego el grupo antes de comprobar duplicado y cupo; H9 `CAPACITY_BELOW_OCCUPIED` y H10 `GROUP_HAS_ACTIVITY` (matrículas) con bloqueo del grupo; `hasActiveEnrollment` real en E1–E4 (en lote en E2). Los mappers de grupos y matrículas pasan a ser funciones estáticas. `./gradlew check`: 287 pruebas en verde.
+- HU37: E12 `confirm`, E13 `reject`, E14 `cancel`, E15 `group` en `EnrollmentLifecycleService`; cada operación bloquea la matrícula y, al cambiar de grupo, el grupo de destino antes de contar cupos; reglas de grupo compartidas con E6 en `GroupEnrollmentPolicy`; reglas por URL para que solo `ADMIN` revise o mueva matrículas. `./gradlew check`: 310 pruebas en verde.
+- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 7).
+
 ## Fase 5 — Pagos presenciales
 - Reporte por acudiente.
 - Registro por administrador e historial.
 - Estados de pago conforme al contrato; sin pasarela ni job automático.
 
+Se desarrolla en una historia de usuario: HU36 Gestión de pagos (E16–E19 y el pago dentro de E12).
+
+Decisiones (2026-10-14):
+- E16: la fecha que indica el acudiente solo sirve para detectar un mes ya pagado; `payment_reported_at` guarda el momento del reporte.
+- `receiptReference` se limita a 50 caracteres, como el contrato, aunque la columna del MER admite 100.
+- E18 se admite en cualquier estado de la matrícula y no cambia nada si ya estaba `OVERDUE`.
+- Un pago puede tener fecha anterior al mes de inicio de la matrícula; no hay regla que lo impida.
+
+**Estado (2026-10-14): HU36 integrada en `development` (PR #22).**
+- HU36: entidad `payment_history`; E16 `payment-report`, E17 `payments`, E18 `payment-status` en `PaymentService`; E19 `GET /payments` en `PaymentQueryService`; reglas del pago (monto mínimo, fecha no futura, un pago por mes) en `PaymentRecorder`, compartido con E12; estados admitidos por operación en `EnrollmentStatePolicy`. E12, E16, E17 y E18 bloquean la matrícula, así que dos registros simultáneos del mismo mes guardan solo uno. Reglas por URL: registrar y marcar mora solo `ADMIN`, reportar solo `GUARDIAN`. `./gradlew check`: 336 pruebas en verde.
+
 ## Fase 6 — Sesiones y asistencia
 - Creación/generación de sesiones.
 - Lista elegible y registro de asistencia.
 - Consultas históricas filtradas por rol.
+
+Se desarrolla en una historia de usuario: HU39 Registro y consulta de asistencia (A1–A9 y las sesiones futuras de H10 y H11).
+
+Decisiones (2026-10-14):
+- Una fecha "pasada" (A1, A2, A5) se compara solo por día en la zona de la academia: hoy se admite aunque la hora ya pasó.
+- Una sesión "futura" en A8 es la de fecha posterior a hoy; la del mismo día se puede registrar.
+- El entrenador que gestiona las sesiones y registra la asistencia es el actual del grupo.
+- A3 sin fechas usa la semana actual (lunes a domingo); con un solo extremo, siete días. A2 y A3 abarcan como máximo 62 días, contando ambos extremos.
+- En H10 y H11, "futuras" son las sesiones `SCHEDULED` con fecha de hoy en adelante.
+- Las marcas de deportistas que salen de la lista se conservan en el historial (A9) y no aparecen en A7.
+
+**Estado (2026-10-14): HU39 implementada, pendiente de revisión.**
+- HU39 en `feature/HU39/attendance-management`: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`. `./gradlew check` completo: pendiente de ejecutar.
+- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Fase 7.
 
 ## Fase 7 — Informes y correo
 - Informes R1–R4 con consultas probadas.
