@@ -1,0 +1,47 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]          # debe coincidir con el name del CI
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: 6. Desplegar en Railway
+    # Solo si el CI terminó bien y fue un push, no un pull request
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Descargar el commit que pasó el CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Desplegar
+        run: railway up --service=${{ secrets.RAILWAY_SERVICE_ID }} --ci
+
+  smoke-test:
+    name: 7. Smoke test
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar que la app responde
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS ${{ vars.APP_URL }}/actuator/health; then              echo "La app está arriba"
+              exit 0
+            fi
+            echo "Intento $i: aún no responde, esperando 15 s..."
+            sleep 15
+          done
+          echo "La app no respondió"
+          exit 1

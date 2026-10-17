@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  ci:
+    name: Build, tests, cobertura y SonarQube Cloud
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Configurar Gradle (con caché)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Dar permisos a gradlew
+        run: chmod +x gradlew
+
+      - name: 1-2. Compilar y ejecutar tests
+        run: ./gradlew test
+
+      - name: Resumen de tests en GitHub
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: 'build/test-results/test/*.xml'
+
+      - name: 3. Reporte y verificación de cobertura
+        run: ./gradlew jacocoTestReport jacocoTestCoverageVerification
+
+      - name: 4. Análisis con SonarQube Cloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./gradlew sonar -Dsonar.qualitygate.wait=true
+
+      - name: 5. Publicar reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-ci
+          path: |
+            build/reports/tests/test
+            build/reports/jacoco/test/html
