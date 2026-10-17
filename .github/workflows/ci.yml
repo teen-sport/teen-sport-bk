@@ -58,3 +58,11 @@ jobs:
           path: |
             build/reports/tests/test
             build/reports/jacoco/test/html
+
+  cd:
+    name: CD
+    needs: ci
+    # Solo despliega pushes a main; los pull requests nunca llegan a esta etapa
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/cd.yml
+    secrets: inherit
