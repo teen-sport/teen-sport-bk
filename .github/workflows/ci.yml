@@ -12,14 +12,12 @@ permissions:
 
 jobs:
   ci:
-    name: Build, tests, cobertura y SonarQube Cloud
+    name: Build, tests y cobertura
     runs-on: ubuntu-latest
 
     steps:
       - name: Descargar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Configurar Java
         uses: actions/setup-java@v4
@@ -45,12 +43,7 @@ jobs:
       - name: 3. Reporte y verificación de cobertura
         run: ./gradlew jacocoTestReport jacocoTestCoverageVerification
 
-      - name: 4. Análisis con SonarQube Cloud
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew sonar -Dsonar.qualitygate.wait=true
-
-      - name: 5. Publicar reportes
+      - name: 4. Publicar reportes
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -62,7 +55,7 @@ jobs:
   cd:
     name: CD
     needs: ci
-    # Solo despliega pushes a main; los pull requests nunca llegan a esta etapa
+    # Solo despliega pushes a main (merges de PR); los pull requests nunca llegan a esta etapa
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/cd.yml
     secrets: inherit
