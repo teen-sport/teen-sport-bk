@@ -35,3 +35,14 @@ out/
 
 ### VS Code ###
 .vscode/
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/docs/prompts/*
+
+### Registros de caída de la JVM ###
+hs_err_pid*.log
+replay_pid*.log

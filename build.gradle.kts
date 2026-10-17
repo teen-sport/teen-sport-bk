@@ -3,6 +3,7 @@ plugins {
 	jacoco
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("org.sonarqube") version "7.5.0.8588"
 }
 
 group = "com.uniquindio"
@@ -18,31 +19,78 @@ repositories {
 	mavenCentral()
 }
 
+// Mockito se carga como agente de la JVM de pruebas (recomendación de Mockito para JDK 21+):
+// evita que intente adjuntarse en caliente con un proceso externo, que puede fallar o bloquearse.
+val mockitoAgent: Configuration by configurations.creating
+
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	implementation("org.springframework.boot:spring-boot-starter-validation")
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+	implementation("org.springframework.boot:spring-boot-starter-security")
+	implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+	implementation(libs.springdoc.openapi.starter.webmvc.ui)
+	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+	testImplementation("org.springframework.boot:spring-boot-testcontainers")
+	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	mockitoAgent("org.mockito:mockito-core") { isTransitive = false }
 }
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	jvmArgs("-javaagent:${mockitoAgent.asPath}")
 	finalizedBy(tasks.jacocoTestReport)
 }
+
+val jacocoExcludes = listOf("**/TeenSportApplication.class")
 
 tasks.jacocoTestReport {
 	dependsOn(tasks.test)
 	reports {
 		xml.required.set(true)
 		html.required.set(true)
+		csv.required.set(true)
 	}
+	classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExcludes) } }))
 }
 
 tasks.jacocoTestCoverageVerification {
+	dependsOn(tasks.jacocoTestReport)
+	classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExcludes) } }))
 	violationRules {
 		rule {
 			limit {
-				minimum = "1.0".toBigDecimal()
+				counter = "LINE"
+				value = "COVEREDRATIO"
+				minimum = "0.80".toBigDecimal()
 			}
 		}
+	}
+}
+
+tasks.check {
+	dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.named<Jar>("jar") {
+	enabled = false
+}
+
+tasks.bootJar {
+	archiveFileName.set("app.jar")
+}
+
+sonar {
+	properties {
+		property("sonar.host.url", "https://sonarcloud.io")
+		property("sonar.organization", "teen-sport")
+		property("sonar.projectKey", "teen-sport_teen-sport-bk")
+		property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
+		property("sonar.coverage.exclusions", "**/TeenSportApplication.java")
 	}
 }

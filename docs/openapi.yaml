@@ -1,0 +1,2420 @@
+openapi: 3.0.3
+info:
+  title: TeenSport API
+  version: 1.0.0
+  description: |
+    REST API for TeenSport, the web system of a youth multi-sport academy.
+    Covers authentication and users, Process 1 (enrollment) and Process 2 (training and attendance).
+
+    **Language convention.** Everything that is code is in English: paths, query parameters, JSON fields,
+    enum values and error codes. Everything the end user sees is in Spanish: the `message` field of every
+    error, e-mail content and UI texts. Clients must branch on `code`, never on `message`.
+
+    **Authentication.** Send `Authorization: Bearer <JWT>` on every request except `POST /auth/login`
+    and `POST /users/register`. Roles are `ADMIN`, `COACH` and `GUARDIAN`.
+
+    **Ownership.** "Own" means the resource belongs to the caller: an athlete of the guardian, a group of the
+    coach. Accessing someone else's resource returns `403 ACCESS_DENIED`. On list endpoints the backend filters
+    by ownership automatically.
+
+    **Formats.** Dates `2026-10-06`, times `16:30`, period `2026-10` (`YYYY-MM`), timestamps ISO-8601 UTC,
+    money as a decimal number in COP.
+
+    **Status codes.** 200 read or update, 201 creation (with a `Location` header), 204 no body, 400 malformed or invalid fields,
+    401 not authenticated, 403 not allowed, 404 not found, 409 duplicate or state conflict, 422 business rule broken.
+
+    Each operation carries two vendor extensions: `x-endpoint-id` (the id used in the project documents) and
+    `x-roles` (roles allowed to call it).
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+    description: Login (1 endpoint)
+  - name: Users
+    description: Registration, own profile and user administration (11 endpoints)
+  - name: Athletes
+    description: Athlete profiles managed by guardians (4 endpoints)
+  - name: Enrollments
+    description: Availability and enrollment lifecycle (8 endpoints)
+  - name: Payments
+    description: Payment report, registration, status and history (4 endpoints, under /enrollments and /payments)
+  - name: Disciplines
+    description: Discipline catalog (5 endpoints)
+  - name: Groups
+    description: Training groups, coaches and weekly schedules (9 endpoints)
+  - name: Sessions
+    description: Training session calendar (6 endpoints)
+  - name: Attendance
+    description: Attendance registration and queries (3 endpoints)
+  - name: Reports
+    description: Read-only indicators (4 endpoints)
+paths:
+  # ------------------------------------------------------------------ AUTH
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in and get a JWT
+      description: |
+        **Roles:** public. Same error for a wrong e-mail or a wrong password.
+      x-endpoint-id: U1
+      x-roles: [PUBLIC]
+      x-error-codes: [VALIDATION_ERROR, INVALID_CREDENTIALS, USER_INACTIVE]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Authenticated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  # ----------------------------------------------------------------- USERS
+  /users/register:
+    post:
+      tags: [Users]
+      operationId: registerGuardian
+      summary: Register a guardian account
+      description: |
+        **Roles:** public. Only guardians register themselves; coaches and admins are created by an admin (U8).
+        Creates the `users` and `guardians` rows in one transaction, with role `GUARDIAN`. `acceptedDataPolicy` must be `true` (Law 1581 of 2012).
+        After this, the client calls `POST /auth/login`.
+      x-endpoint-id: U2
+      x-roles: [PUBLIC]
+      x-error-codes: [VALIDATION_ERROR, DATA_POLICY_NOT_ACCEPTED, EMAIL_ALREADY_REGISTERED, ID_NUMBER_ALREADY_REGISTERED, WEAK_PASSWORD]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterGuardianRequest' }
+      responses:
+        '201':
+          description: Guardian created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/me:
+    get:
+      tags: [Users]
+      operationId: getMyProfile
+      summary: Get the authenticated user's profile
+      description: '**Roles:** any authenticated user.'
+      x-endpoint-id: U3
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: []
+      responses:
+        '200':
+          description: Profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Users]
+      operationId: updateMyProfile
+      summary: Update the authenticated user's profile
+      description: |
+        **Roles:** any authenticated user. E-mail, ID and role cannot be changed here.
+        Send `homeAddress` as a guardian, or `specialty` and `yearsOfExperience` as a coach.
+        Fields of another role, and any e-mail, ID or role sent in the body, are ignored. It is a full replacement:
+        an optional field of the caller's role that is not sent is cleared.
+      x-endpoint-id: U4
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [VALIDATION_ERROR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOwnProfileRequest' }
+      responses:
+        '200':
+          description: Updated profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /users/me/password:
+    put:
+      tags: [Users]
+      operationId: changeMyPassword
+      summary: Change the authenticated user's password
+      description: '**Roles:** any authenticated user. Passwords are stored hashed with BCrypt.'
+      x-endpoint-id: U5
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [VALIDATION_ERROR, INCORRECT_CURRENT_PASSWORD, WEAK_PASSWORD]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '204': { description: Password changed. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: List users (paginated)
+      description: |
+        **Roles:** ADMIN. Ordered by last names, first names and id. `q` matches, case-insensitively, first names,
+        last names, full name, e-mail or ID number; `%` and `_` are searched as literal text.
+      x-endpoint-id: U6
+      x-roles: [ADMIN]
+      x-error-codes: []
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+        - name: role
+          in: query
+          schema: { $ref: '#/components/schemas/Role' }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/EntityStatus' }
+        - name: q
+          in: query
+          description: Free text over name, e-mail and ID number.
+          schema: { type: string }
+      responses:
+        '200':
+          description: A page of users.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Users]
+      operationId: createStaffUser
+      summary: Create a coach or an admin account
+      description: |
+        **Roles:** ADMIN. For a coach it also creates the `coaches` row.
+        `acceptedDataPolicy` is only enforced for guardians. `role` must be `ADMIN` or `COACH`; any other value
+        returns 400 `VALIDATION_ERROR` on the field `staffRole`. `specialty` and `yearsOfExperience` are ignored for admins.
+      x-endpoint-id: U8
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, EMAIL_ALREADY_REGISTERED, ID_NUMBER_ALREADY_REGISTERED, WEAK_PASSWORD]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Users]
+      operationId: getUser
+      summary: Get a user
+      description: '**Roles:** ADMIN.'
+      x-endpoint-id: U7
+      x-roles: [ADMIN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: User.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Users]
+      operationId: updateUser
+      summary: Update a user
+      description: |
+        **Roles:** ADMIN. The role, ID and status never change here. `email` is optional: when omitted it is kept.
+        The other fields follow the rules of U4 (fields of another role are ignored; an omitted optional field of the
+        user's role is cleared).
+      x-endpoint-id: U9
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, EMAIL_ALREADY_REGISTERED]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserRequest' }
+      responses:
+        '200':
+          description: Updated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /users/{id}/status:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Users]
+      operationId: updateUserStatus
+      summary: Activate or deactivate a user
+      description: |
+        **Roles:** ADMIN. An inactive user cannot log in; a token already issued expires on its own.
+        An admin cannot deactivate their own account (422 `CANNOT_DEACTIVATE_SELF`). A coach with `ACTIVE` groups cannot be
+        deactivated (409 `COACH_HAS_ACTIVE_GROUPS`).
+      x-endpoint-id: U10
+      x-roles: [ADMIN]
+      x-error-codes: [NOT_FOUND, CANNOT_DEACTIVATE_SELF, COACH_HAS_ACTIVE_GROUPS]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StatusRequest' }
+      responses:
+        '200':
+          description: Updated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /coaches:
+    get:
+      tags: [Users]
+      operationId: listCoaches
+      summary: List coaches
+      description: '**Roles:** ADMIN. Used to pick a coach when creating or editing a group (H8, H11). `id` is the coach id, `userId` the user id.'
+      x-endpoint-id: U11
+      x-roles: [ADMIN]
+      x-error-codes: []
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/EntityStatus' }
+      responses:
+        '200':
+          description: Coaches.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CoachListItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /guardians:
+    get:
+      tags: [Users]
+      operationId: listGuardians
+      summary: List guardians (paginated)
+      description: |
+        **Roles:** ADMIN. Used when an admin registers an athlete on behalf of a guardian (E1).
+        Ordered by last names and first names. `q` works as in U6.
+      x-endpoint-id: U12
+      x-roles: [ADMIN]
+      x-error-codes: []
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: A page of guardians.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GuardianPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  # -------------------------------------------------------------- ATHLETES
+  /athletes:
+    post:
+      tags: [Athletes]
+      operationId: createAthlete
+      summary: Register an athlete
+      description: |
+        **Roles:** GUARDIAN (own), ADMIN. `guardianId` is only sent by an admin; for a guardian it comes from the token.
+        Age must be 12 to 17 on the request date, and the guardian must have accepted the data policy.
+        The request date is the academy's local date (`America/Bogota` by default). For an admin `guardianId` is
+        required and must be an active guardian; otherwise 400 `VALIDATION_ERROR` on `guardianId`.
+        `idNumber` is unique among athletes (409 `DUPLICATE_ATHLETE`).
+      x-endpoint-id: E1
+      x-roles: [GUARDIAN, ADMIN]
+      x-error-codes: [VALIDATION_ERROR, AGE_OUT_OF_RANGE, DATA_POLICY_NOT_ACCEPTED, DUPLICATE_ATHLETE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAthleteRequest' }
+      responses:
+        '201':
+          description: Athlete created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Athlete' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    get:
+      tags: [Athletes]
+      operationId: listAthletes
+      summary: List athletes (paginated)
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (only own, automatic; `guardianId` is ignored).
+        Ordered by last names and first names. `q` matches first names, last names, full name or ID number.
+      x-endpoint-id: E2
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: []
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+        - name: q
+          in: query
+          description: Free text over name and ID number.
+          schema: { type: string }
+        - name: guardianId
+          in: query
+          description: Admin only.
+          schema: { type: integer, format: int32 }
+      responses:
+        '200':
+          description: A page of athletes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AthletePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /athletes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Athletes]
+      operationId: getAthlete
+      summary: Get an athlete
+      description: '**Roles:** ADMIN, GUARDIAN (own).'
+      x-endpoint-id: E3
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: Athlete.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Athlete' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Athletes]
+      operationId: updateAthlete
+      summary: Update an athlete
+      description: |
+        **Roles:** ADMIN, GUARDIAN (own). There is no DELETE: leaving the academy means cancelling the enrollment.
+        The guardian never changes. The age range is checked only when `birthDate` changes, so an athlete who has
+        turned 18 can still be corrected.
+      x-endpoint-id: E4
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, AGE_OUT_OF_RANGE, DUPLICATE_ATHLETE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAthleteRequest' }
+      responses:
+        '200':
+          description: Updated athlete.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Athlete' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  # ----------------------------------------------------------- ENROLLMENTS
+  /availability:
+    get:
+      tags: [Enrollments]
+      operationId: getAvailability
+      summary: Groups with free spots for a period
+      description: |
+        **Roles:** ADMIN, GUARDIAN. Returns only `ACTIVE` groups of `ACTIVE` disciplines, with `occupiedSpots` and `availableSpots` for the period.
+        Occupied spots count enrollments in `PENDING_REVIEW` and `ACTIVE` whose start `period` is on or before the requested period
+        (an enrollment stays in force month to month from its start period until it is rejected or cancelled).
+        Because every in-force enrollment also takes a spot in all later months, `availableSpots` is `maxCapacity` minus all in-force
+        enrollments of the group (never negative): the spots that can still be reserved from that period on.
+        This is the only endpoint guardians use to browse groups.
+      x-endpoint-id: E5
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: [VALIDATION_ERROR, PERIOD_IN_PAST]
+      parameters:
+        - { $ref: '#/components/parameters/PeriodRequired' }
+        - name: disciplineId
+          in: query
+          schema: { type: integer, format: int32 }
+      responses:
+        '200':
+          description: Availability per group.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/GroupAvailability' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /enrollments:
+    post:
+      tags: [Enrollments]
+      operationId: createEnrollment
+      summary: Request an enrollment
+      description: |
+        **Roles:** GUARDIAN (own athlete), ADMIN. Creates the enrollment in `PENDING_REVIEW` with `paymentStatus` `OVERDUE`
+        and reserves a spot, checked under a pessimistic lock on the group row. `period` is the start month: the enrollment stays
+        in force month to month until it is rejected or cancelled. Returns 409 `DUPLICATE_ENROLLMENT` when the athlete already has an
+        in-force enrollment (`PENDING_REVIEW` or `ACTIVE`) in the same discipline, whatever its group or start period; to move to
+        another group use E15. Enrollments in other disciplines are allowed.
+        When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409
+        (the e-mail is sent once the mail adapter exists, phase 7). A spot is free when the group's in-force enrollments, whatever their
+        start period, are fewer than `maxCapacity`. Checks run in this order: athlete and group exist (404), ownership (403), age,
+        period, active group and discipline (422), duplicate and spots (409).
+      x-endpoint-id: E6
+      x-roles: [GUARDIAN, ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, AGE_OUT_OF_RANGE, PERIOD_IN_PAST, GROUP_INACTIVE, NO_AVAILABLE_SPOTS, DUPLICATE_ENROLLMENT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEnrollmentRequest' }
+      responses:
+        '201':
+          description: Enrollment requested.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    get:
+      tags: [Enrollments]
+      operationId: listEnrollments
+      summary: List enrollments (paginated)
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (own, automatic). Admin filters `paymentReported=true` to see families that reported a payment.
+        `period` returns the enrollments in force that month: start period on or before it and, unless `status` is given,
+        `PENDING_REVIEW` or `ACTIVE`. Sorted newest first.
+      x-endpoint-id: E7
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: []
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/EnrollmentStatus' }
+        - name: paymentStatus
+          in: query
+          schema: { $ref: '#/components/schemas/PaymentStatus' }
+        - name: paymentReported
+          in: query
+          schema: { type: boolean }
+        - { $ref: '#/components/parameters/Period' }
+        - name: disciplineId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: groupId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: athleteId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: guardianId
+          in: query
+          description: Admin only.
+          schema: { type: integer, format: int32 }
+      responses:
+        '200':
+          description: A page of enrollments.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /enrollments/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Enrollments]
+      operationId: getEnrollment
+      summary: Get an enrollment with schedules
+      description: '**Roles:** ADMIN, GUARDIAN (own).'
+      x-endpoint-id: E8
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: Enrollment detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /enrollments/{id}/confirm:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Enrollments]
+      operationId: confirmEnrollment
+      summary: Confirm an enrollment
+      description: |
+        **Roles:** ADMIN. Moves to `ACTIVE`, sets `confirmedAt`, and sends `ENROLLMENT_CONFIRMED` after commit (not awaited, RNF-04).
+        `groupId` (optional) assigns another group of the same discipline; `payment` (optional, same body as E17) registers the payment
+        in the same call, under the same rules as E17, and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
+        If the payment breaks a rule nothing is confirmed. The e-mail is sent once the mail adapter exists (phase 7). Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
+        the current group must still be active (422 `GROUP_INACTIVE`); another group must be of the same discipline, active and with a
+        free spot.
+      x-endpoint-id: E12
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmEnrollmentRequest' }
+      responses:
+        '200':
+          description: Enrollment confirmed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /enrollments/{id}/reject:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Enrollments]
+      operationId: rejectEnrollment
+      summary: Reject an enrollment
+      description: |
+        **Roles:** ADMIN. Only from `PENDING_REVIEW`. Terminal state `REJECTED`; frees the spot;
+        sends `ENROLLMENT_REJECTED` with the reason (once the mail adapter exists, phase 7). The reason is stored as `reviewNotes`.
+      x-endpoint-id: E13
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequiredRequest' }
+      responses:
+        '200':
+          description: Enrollment rejected.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /enrollments/{id}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Enrollments]
+      operationId: cancelEnrollment
+      summary: Cancel an enrollment
+      description: |
+        **Roles:** GUARDIAN (own, only while the enrollment is not `ACTIVE`), ADMIN (any non-terminal enrollment).
+        Terminal state `CANCELLED`; frees the spot. Counts as abandonment in report R1.
+        A guardian trying to cancel an `ACTIVE` enrollment gets 403 `ACCESS_DENIED`. A `REJECTED` or `CANCELLED` enrollment returns
+        409 `INVALID_STATE`. A non-blank `reason` is stored as `reviewNotes`.
+      x-endpoint-id: E14
+      x-roles: [GUARDIAN, ADMIN]
+      x-error-codes: [ACCESS_DENIED, NOT_FOUND, INVALID_STATE]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonOptionalRequest' }
+      responses:
+        '200':
+          description: Enrollment cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /enrollments/{id}/group:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Enrollments]
+      operationId: changeEnrollmentGroup
+      summary: Move an enrollment to another group of the same discipline
+      description: |
+        **Roles:** ADMIN. Same discipline; the enrollment keeps its start period. The spot in the old group is released and one in the new group is reserved.
+        Past sessions and attendance are not touched. Only in-force enrollments (`PENDING_REVIEW` or `ACTIVE`) can move
+        (409 `INVALID_STATE`); the status does not change. Sending the current group changes nothing.
+      x-endpoint-id: E15
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, GROUP_INACTIVE, GROUP_OTHER_DISCIPLINE, NO_AVAILABLE_SPOTS]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeGroupRequest' }
+      responses:
+        '200':
+          description: Enrollment updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  # -------------------------------------------------------------- PAYMENTS
+  /enrollments/{id}/payment-report:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Payments]
+      operationId: reportPayment
+      summary: Guardian reports that they paid in person
+      description: |
+        **Roles:** GUARDIAN (own). Only sets `paymentReported=true` so the admin can find it. It does NOT change `paymentStatus`:
+        only the admin can, through E17 or E12. Returns 409 `PAYMENT_ALREADY_REGISTERED` when the enrollment already has a payment
+        whose `paymentDate` falls in the month of the reported `paymentDate` (or the current month when it is omitted).
+        The reported `paymentDate` is only used for that check; the enrollment stores the moment of the report and the `notes`
+        (a new report replaces the previous note). Only while the enrollment is `PENDING_REVIEW` or `ACTIVE` (409 `INVALID_STATE`).
+      x-endpoint-id: E16
+      x-roles: [GUARDIAN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentReportRequest' }
+      responses:
+        '200':
+          description: Report stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /enrollments/{id}/payments:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Payments]
+      operationId: registerPayment
+      summary: Register an in-person payment
+      description: |
+        **Roles:** ADMIN. Creates the payment, sets `paymentStatus` to `UP_TO_DATE` and clears `paymentReported`.
+        `amountPaid` must be at least the discipline `monthlyFee`. Only while the enrollment is `PENDING_REVIEW` or `ACTIVE`.
+        An enrollment can have several payments, at most one per calendar month: the month a payment covers is the month of its
+        `paymentDate`, and the payment with the most recent `paymentDate` is the latest one. A second payment whose `paymentDate`
+        falls in a month that already has a payment returns 409 `PAYMENT_ALREADY_REGISTERED`. `paymentDate` cannot be after today in
+        the academy time zone (422 `FUTURE_DATE`); it may be before the enrollment start month. `registeredBy.id` is the admin user id.
+      x-endpoint-id: E17
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, PAYMENT_ALREADY_REGISTERED, INSUFFICIENT_AMOUNT, FUTURE_DATE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterPaymentRequest' }
+      responses:
+        '201':
+          description: Payment registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /enrollments/{id}/payment-status:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Payments]
+      operationId: updatePaymentStatus
+      summary: Manually mark an enrollment as overdue
+      description: |
+        **Roles:** ADMIN. Only `OVERDUE` is accepted. `UP_TO_DATE` is reached only by registering a payment (E17 or E12).
+        There is no automatic job (ADR-08). Accepted in any enrollment status; marking an enrollment that is already `OVERDUE`
+        changes nothing. Any other value than `OVERDUE`/`UP_TO_DATE` is a 400 `VALIDATION_ERROR`.
+      x-endpoint-id: E18
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, USE_PAYMENT_REGISTRATION]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentStatusRequest' }
+      responses:
+        '200':
+          description: Enrollment updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /payments:
+    get:
+      tags: [Payments]
+      operationId: listPayments
+      summary: Payment history (paginated)
+      description: |
+        **Roles:** ADMIN (all), GUARDIAN (own, automatic). Ordered by `paymentDate` descending, then `id` descending. `from` and `to`
+        filter `paymentDate` and are inclusive; `from` after `to` returns 400 `VALIDATION_ERROR`.
+      x-endpoint-id: E19
+      x-roles: [ADMIN, GUARDIAN]
+      x-error-codes: []
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+        - name: enrollmentId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: athleteId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: A page of payments.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  # ----------------------------------------------------------- DISCIPLINES
+  /disciplines:
+    get:
+      tags: [Disciplines]
+      operationId: listDisciplines
+      summary: List disciplines
+      description: |
+        **Roles:** ADMIN, COACH, GUARDIAN. Non-admins only see `ACTIVE` disciplines; for them the `status` filter is ignored.
+        Ordered by name.
+      x-endpoint-id: H1
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: []
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/EntityStatus' }
+      responses:
+        '200':
+          description: Disciplines.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Discipline' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Disciplines]
+      operationId: createDiscipline
+      summary: Create a discipline
+      description: |
+        **Roles:** ADMIN. `monthlyFee` must be greater than 0 and fit `DECIMAL(10,2)`. Created `ACTIVE`.
+        `name` is unique ignoring case (409 `DUPLICATE_DISCIPLINE`).
+      x-endpoint-id: H3
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, DUPLICATE_DISCIPLINE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisciplineRequest' }
+      responses:
+        '201':
+          description: Discipline created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Discipline' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /disciplines/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Disciplines]
+      operationId: getDiscipline
+      summary: Get a discipline
+      description: '**Roles:** ADMIN, COACH, GUARDIAN.'
+      x-endpoint-id: H2
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: Discipline.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Discipline' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Disciplines]
+      operationId: updateDiscipline
+      summary: Update a discipline
+      description: '**Roles:** ADMIN. A new `monthlyFee` applies to payments registered from that moment on.'
+      x-endpoint-id: H4
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, DUPLICATE_DISCIPLINE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisciplineRequest' }
+      responses:
+        '200':
+          description: Updated discipline.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Discipline' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /disciplines/{id}/status:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Disciplines]
+      operationId: updateDisciplineStatus
+      summary: Activate or deactivate a discipline
+      description: |
+        **Roles:** ADMIN. Cannot deactivate while it has `ACTIVE` groups (409 `DISCIPLINE_HAS_ACTIVE_GROUPS`).
+      x-endpoint-id: H5
+      x-roles: [ADMIN]
+      x-error-codes: [NOT_FOUND, DISCIPLINE_HAS_ACTIVE_GROUPS]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StatusRequest' }
+      responses:
+        '200':
+          description: Updated discipline.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Discipline' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  # ---------------------------------------------------------------- GROUPS
+  /groups:
+    get:
+      tags: [Groups]
+      operationId: listGroups
+      summary: List groups with schedules
+      description: '**Roles:** ADMIN (all), COACH (own, automatic). Guardians do not use it: they browse groups with E5.'
+      x-endpoint-id: H6
+      x-roles: [ADMIN, COACH]
+      x-error-codes: []
+      parameters:
+        - name: disciplineId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: coachId
+          in: query
+          description: Admin only.
+          schema: { type: integer, format: int32 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/EntityStatus' }
+      responses:
+        '200':
+          description: Groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Group' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Groups]
+      operationId: createGroup
+      summary: Create a group
+      description: |
+        **Roles:** ADMIN. `maxCapacity` is 1 to 15. The coach must be `ACTIVE`; the discipline must be `ACTIVE`.
+        Created `ACTIVE`, without schedules (add them with H12).
+        Persisted in the table `groups` (the ER model name, used by the deployed PostgreSQL database).
+        A coach or discipline that does not exist returns 404; an inactive one returns 422.
+      x-endpoint-id: H8
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_MAX_CAPACITY, INVALID_COACH, DISCIPLINE_INACTIVE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateGroupRequest' }
+      responses:
+        '201':
+          description: Group created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Group' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /groups/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Groups]
+      operationId: getGroup
+      summary: Get a group
+      description: '**Roles:** ADMIN, COACH (own group).'
+      x-endpoint-id: H7
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: Group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Group' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Groups]
+      operationId: updateGroup
+      summary: Update group name and capacity
+      description: '**Roles:** ADMIN. `maxCapacity` is 1 to 15 and cannot go below the occupied spots of the current or any future month, i.e. the in-force `PENDING_REVIEW` and `ACTIVE` enrollments of the group (409).'
+      x-endpoint-id: H9
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_MAX_CAPACITY, CAPACITY_BELOW_OCCUPIED]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateGroupRequest' }
+      responses:
+        '200':
+          description: Updated group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Group' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /groups/{id}/status:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    patch:
+      tags: [Groups]
+      operationId: updateGroupStatus
+      summary: Activate or deactivate a group
+      description: |
+        **Roles:** ADMIN. Deactivating is refused (409 `GROUP_HAS_ACTIVITY`) while the group has in-force enrollments
+        (`PENDING_REVIEW` or `ACTIVE`) or future sessions (`SCHEDULED` with date today or later).
+        Reactivating is refused (409 `COACH_SCHEDULE_CONFLICT`) if any of the group's slots overlaps a slot of another
+        `ACTIVE` group of the same coach, since slots of inactive groups do not block the coach.
+      x-endpoint-id: H10
+      x-roles: [ADMIN]
+      x-error-codes: [NOT_FOUND, GROUP_HAS_ACTIVITY, COACH_SCHEDULE_CONFLICT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StatusRequest' }
+      responses:
+        '200':
+          description: Updated group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Group' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /groups/{id}/coach:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    put:
+      tags: [Groups]
+      operationId: assignGroupCoach
+      summary: Assign or change the group coach
+      description: |
+        **Roles:** ADMIN. The coach must be `ACTIVE` and must not have a schedule overlapping the group's schedules.
+        Future sessions of the group (`SCHEDULED` with date today or later) move to the new coach; earlier ones keep the coach who gave them.
+      x-endpoint-id: H11
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_COACH, COACH_SCHEDULE_CONFLICT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssignCoachRequest' }
+      responses:
+        '200':
+          description: Updated group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Group' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /groups/{id}/schedules:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Groups]
+      operationId: createGroupSchedule
+      summary: Add a weekly schedule slot to a group
+      description: |
+        **Roles:** ADMIN. `endTime` must be after `startTime`. Rejected if it overlaps another slot of the group
+        or another slot of the same coach in an `ACTIVE` group (`SCHEDULE_CONFLICT`). Contiguous slots (16:00–17:00 and
+        17:00–18:00) do not overlap. Slots can be managed in inactive groups. Times use `HH:mm`.
+      x-endpoint-id: H12
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_TIME_RANGE, SCHEDULE_CONFLICT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleRequest' }
+      responses:
+        '201':
+          description: Schedule created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Schedule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /schedules/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    put:
+      tags: [Groups]
+      operationId: updateSchedule
+      summary: Update a weekly schedule slot
+      description: '**Roles:** ADMIN. Same validations and errors as H12.'
+      x-endpoint-id: H13
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_TIME_RANGE, SCHEDULE_CONFLICT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleRequest' }
+      responses:
+        '200':
+          description: Updated schedule.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Schedule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Groups]
+      operationId: deleteSchedule
+      summary: Delete a weekly schedule slot
+      description: '**Roles:** ADMIN. Sessions already created from it are not deleted.'
+      x-endpoint-id: H14
+      x-roles: [ADMIN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '204': { description: Schedule deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  # -------------------------------------------------------------- SESSIONS
+  /sessions:
+    post:
+      tags: [Sessions]
+      operationId: createSession
+      summary: Create a single training session
+      description: |
+        **Roles:** ADMIN, COACH (own group). The date cannot be in the past. It does not have to match a group schedule (extra sessions are allowed).
+        A group cannot have two sessions with the same date and start time. Created in `SCHEDULED`. No e-mail is sent.
+        "In the past" compares only the date in the academy time zone: today is accepted even if the hour has passed.
+        The session is given by the current coach of the group. Validation order: 404, 403, `GROUP_INACTIVE`,
+        `INVALID_TIME_RANGE`, `DATE_IN_PAST`, `DUPLICATE_SESSION`.
+      x-endpoint-id: A1
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSessionRequest' }
+      responses:
+        '201':
+          description: Session created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrainingSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    get:
+      tags: [Sessions]
+      operationId: listSessions
+      summary: Session calendar
+      description: |
+        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (groups where one of their athletes has an `ACTIVE` enrollment
+        whose start `period` is on or before the month of the session; each item includes `athletes`).
+        Without dates the range is the current week (Monday to Sunday, academy time zone); with only `from` it is the seven days
+        starting at `from`; with only `to`, the seven days ending at `to`. The range covers at most 62 days, both ends included
+        (422 `INVALID_DATE_RANGE`). `athleteId` keeps the sessions of groups where that athlete has an `ACTIVE` enrollment already started.
+      x-endpoint-id: A3
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [INVALID_DATE_RANGE]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: groupId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: disciplineId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: athleteId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/SessionStatus' }
+      responses:
+        '200':
+          description: Sessions ordered by date and start time.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TrainingSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /sessions/generate:
+    post:
+      tags: [Sessions]
+      operationId: generateSessions
+      summary: Generate sessions from the group's weekly schedules
+      description: |
+        **Roles:** ADMIN, COACH (own group). Creates one session per schedule slot and date in the range (at most 62 days, both ends
+        included). Sessions with the same date and start time as an existing one are skipped. `dateFrom` cannot be before today.
+        With `notify=true` every guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`
+        (from phase 7; until then `notify` is accepted and no e-mail is sent). `sessions` holds only the created sessions.
+      x-endpoint-id: A2
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, GROUP_WITHOUT_SCHEDULES, INVALID_DATE_RANGE, DATE_IN_PAST]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenerateSessionsRequest' }
+      responses:
+        '201':
+          description: Generation result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerateSessionsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /sessions/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Sessions]
+      operationId: getSession
+      summary: Get a session
+      description: '**Roles:** same scope as A3. 403 if the session is outside the caller scope.'
+      x-endpoint-id: A4
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: Session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrainingSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Sessions]
+      operationId: updateSession
+      summary: Reschedule a session
+      description: |
+        **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions (409 `INVALID_STATE`). Same date, time and duplicate rules as A1,
+        ignoring the session itself. `notes` replaces the previous notes. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
+      x-endpoint-id: A5
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSessionRequest' }
+      responses:
+        '200':
+          description: Updated session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrainingSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /sessions/{id}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    post:
+      tags: [Sessions]
+      operationId: cancelSession
+      summary: Cancel a session
+      description: |
+        **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions. The reason is stored in `notes`. Cancelled sessions do not count
+        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
+      x-endpoint-id: A6
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequiredRequest' }
+      responses:
+        '200':
+          description: Cancelled session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrainingSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  # ------------------------------------------------------------ ATTENDANCE
+  /sessions/{id}/attendance:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Attendance]
+      operationId: getSessionAttendance
+      summary: Session roster with saved marks
+      description: |
+        **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose start `period`
+        is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked. Marks of athletes
+        that left the roster later are kept in the history (A9) but are not listed here.
+      x-endpoint-id: A7
+      x-roles: [COACH, ADMIN]
+      x-error-codes: [NOT_FOUND]
+      responses:
+        '200':
+          description: Roster.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceRoster' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Attendance]
+      operationId: recordSessionAttendance
+      summary: Record attendance for the whole roster
+      description: |
+        **Roles:** COACH only (assigned to the group). One call with the whole roster; saving again overwrites the previous marks (upsert).
+        Marks the session `COMPLETED`. Cannot be done for a future session (date after today in the academy time zone; today is
+        allowed, 422 `FUTURE_SESSION`) or a cancelled one (409 `SESSION_CANCELLED`). An athlete outside the roster returns 422
+        `ATHLETE_NOT_IN_ROSTER`; a missing one, 422 `INCOMPLETE_ATTENDANCE`; a repeated one, 400 `VALIDATION_ERROR` on `records`.
+      x-endpoint-id: A8
+      x-roles: [COACH]
+      x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INCOMPLETE_ATTENDANCE, ATHLETE_NOT_IN_ROSTER, FUTURE_SESSION, SESSION_CANCELLED]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecordAttendanceRequest' }
+      responses:
+        '200':
+          description: Saved roster.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceRoster' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /attendance-records:
+    get:
+      tags: [Attendance]
+      operationId: listAttendanceRecords
+      summary: Attendance history (paginated)
+      description: |
+        **Roles:** ADMIN (all), COACH (own groups, automatic), GUARDIAN (own athletes, automatic). Ordered by session date and start
+        time descending. `from` and `to` filter the session date and are inclusive; `from` after `to` returns 422 `INVALID_DATE_RANGE`.
+      x-endpoint-id: A9
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [INVALID_DATE_RANGE]
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+        - name: athleteId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: groupId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/AttendanceStatus' }
+      responses:
+        '200':
+          description: A page of attendance records.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceRecordPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  # --------------------------------------------------------------- REPORTS
+  /reports/enrollments:
+    get:
+      tags: [Reports]
+      operationId: getEnrollmentReport
+      summary: Enrollment indicators
+      description: |
+        **Roles:** ADMIN. `period` is required. `completionRate` = `ACTIVE` / `totalRequests`; `abandonmentRate` = `CANCELLED` / `totalRequests` (percent).
+        `averageConfirmationHours` is the mean of `confirmedAt - createdAt` over `ACTIVE` enrollments.
+      x-endpoint-id: R1
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR]
+      parameters:
+        - { $ref: '#/components/parameters/PeriodRequired' }
+      responses:
+        '200':
+          description: Report.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EnrollmentReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reports/attendance:
+    get:
+      tags: [Reports]
+      operationId: getAttendanceReport
+      summary: Attendance indicators
+      description: |
+        **Roles:** ADMIN, COACH (own groups). `scheduledSessions` are non-cancelled sessions with date up to today;
+        `recordingCoverage` = `completedSessions` / `scheduledSessions`; `attendanceRate` = `PRESENT` / (`PRESENT` + `ABSENT`). Percent values.
+      x-endpoint-id: R2
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [VALIDATION_ERROR, INVALID_DATE_RANGE]
+      parameters:
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: groupId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: disciplineId
+          in: query
+          schema: { type: integer, format: int32 }
+      responses:
+        '200':
+          description: Report.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttendanceReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /reports/attendance/athletes/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+    get:
+      tags: [Reports]
+      operationId: getAthleteAttendanceReport
+      summary: Attendance history and rate of one athlete
+      description: '**Roles:** ADMIN, COACH (athlete in one of their groups), GUARDIAN (own athlete).'
+      x-endpoint-id: R3
+      x-roles: [ADMIN, COACH, GUARDIAN]
+      x-error-codes: [NOT_FOUND, INVALID_DATE_RANGE]
+      parameters:
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Report.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AthleteAttendanceReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /reports/attendance/recurrent-absences:
+    get:
+      tags: [Reports]
+      operationId: getRecurrentAbsences
+      summary: Athletes with consecutive absences
+      description: |
+        **Roles:** ADMIN, COACH (own groups). Returns athletes whose latest run of `ABSENT` marks is at least `minConsecutive` (default 3).
+      x-endpoint-id: R4
+      x-roles: [ADMIN, COACH]
+      x-error-codes: [VALIDATION_ERROR]
+      parameters:
+        - name: minConsecutive
+          in: query
+          schema: { type: integer, minimum: 1, default: 3 }
+        - name: groupId
+          in: query
+          schema: { type: integer, format: int32 }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Athletes with recurrent absences.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/RecurrentAbsence' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'JWT with claims `sub`, `role`, `guardianId` or `coachId`, and `exp`.'
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int32 }
+    Page:
+      name: page
+      in: query
+      description: Zero-based page index.
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      description: Page size (max 100).
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Period:
+      name: period
+      in: query
+      description: Month in `YYYY-MM` format.
+      schema: { $ref: '#/components/schemas/Period' }
+    PeriodRequired:
+      name: period
+      in: query
+      required: true
+      description: Month in `YYYY-MM` format.
+      schema: { $ref: '#/components/schemas/Period' }
+  responses:
+    BadRequest:
+      description: Malformed request or failed field validation (`VALIDATION_ERROR`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 400
+            code: VALIDATION_ERROR
+            message: Hay campos con errores. Revisa los datos ingresados.
+            details:
+              - { field: email, message: El correo electrónico no es válido }
+            path: /api/v1/users/register
+    Unauthorized:
+      description: Missing, invalid or expired token (`UNAUTHENTICATED`, `TOKEN_EXPIRED`) or wrong credentials (`INVALID_CREDENTIALS`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 401
+            code: UNAUTHENTICATED
+            message: Debes iniciar sesión para continuar.
+            details: []
+            path: /api/v1/users/me
+    Forbidden:
+      description: The role or the resource owner is not allowed (`ACCESS_DENIED`), or the user is inactive (`USER_INACTIVE`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 403
+            code: ACCESS_DENIED
+            message: No tienes permiso para realizar esta acción.
+            details: []
+            path: /api/v1/enrollments/12
+    NotFound:
+      description: The resource does not exist (`NOT_FOUND`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 404
+            code: NOT_FOUND
+            message: No se encontró el recurso solicitado.
+            details: []
+            path: /api/v1/enrollments/999
+    Conflict:
+      description: Duplicate resource, no spots, or the current state does not allow the action (409).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 409
+            code: NO_AVAILABLE_SPOTS
+            message: El grupo no tiene cupos disponibles para el periodo seleccionado.
+            details: []
+            path: /api/v1/enrollments
+    Unprocessable:
+      description: The request is well formed but breaks a business rule (422).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 422
+            code: AGE_OUT_OF_RANGE
+            message: El deportista debe tener entre 12 y 17 años.
+            details: []
+            path: /api/v1/athletes
+    InternalError:
+      description: Unexpected server failure (`INTERNAL_ERROR`). Applies to any operation; never exposes stack traces, SQL or internal details.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            timestamp: '2026-10-08T15:30:00Z'
+            status: 500
+            code: INTERNAL_ERROR
+            message: Ocurrió un error inesperado. Intenta de nuevo más tarde.
+            details: []
+            path: /api/v1/enrollments
+  schemas:
+    # ------------------------------------------------------------ primitives
+    Period:
+      type: string
+      pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+      example: '2026-10'
+    Time:
+      type: string
+      pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+      example: '16:30'
+    Role:
+      type: string
+      enum: [ADMIN, COACH, GUARDIAN]
+    EnrollmentStatus:
+      type: string
+      enum: [PENDING_REVIEW, ACTIVE, REJECTED, CANCELLED]
+    PaymentStatus:
+      type: string
+      enum: [UP_TO_DATE, OVERDUE]
+    SessionStatus:
+      type: string
+      enum: [SCHEDULED, COMPLETED, CANCELLED]
+    AttendanceStatus:
+      type: string
+      enum: [PRESENT, ABSENT]
+    EntityStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE]
+    DayOfWeek:
+      type: string
+      enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHENTICATED
+        - TOKEN_EXPIRED
+        - ACCESS_DENIED
+        - NOT_FOUND
+        - INVALID_STATE
+        - AGE_OUT_OF_RANGE
+        - DATA_POLICY_NOT_ACCEPTED
+        - DUPLICATE_ATHLETE
+        - PERIOD_IN_PAST
+        - NO_AVAILABLE_SPOTS
+        - DUPLICATE_ENROLLMENT
+        - GROUP_INACTIVE
+        - GROUP_OTHER_DISCIPLINE
+        - PAYMENT_ALREADY_REGISTERED
+        - INSUFFICIENT_AMOUNT
+        - FUTURE_DATE
+        - USE_PAYMENT_REGISTRATION
+        - DUPLICATE_DISCIPLINE
+        - DISCIPLINE_HAS_ACTIVE_GROUPS
+        - DISCIPLINE_INACTIVE
+        - INVALID_MAX_CAPACITY
+        - CAPACITY_BELOW_OCCUPIED
+        - INVALID_COACH
+        - GROUP_HAS_ACTIVITY
+        - INVALID_TIME_RANGE
+        - SCHEDULE_CONFLICT
+        - COACH_SCHEDULE_CONFLICT
+        - DATE_IN_PAST
+        - DUPLICATE_SESSION
+        - INVALID_DATE_RANGE
+        - GROUP_WITHOUT_SCHEDULES
+        - INCOMPLETE_ATTENDANCE
+        - ATHLETE_NOT_IN_ROSTER
+        - FUTURE_SESSION
+        - SESSION_CANCELLED
+        - INVALID_CREDENTIALS
+        - USER_INACTIVE
+        - EMAIL_ALREADY_REGISTERED
+        - ID_NUMBER_ALREADY_REGISTERED
+        - WEAK_PASSWORD
+        - INCORRECT_CURRENT_PASSWORD
+        - CANNOT_DEACTIVATE_SELF
+        - COACH_HAS_ACTIVE_GROUPS
+        - INTERNAL_ERROR
+    Error:
+      type: object
+      required: [timestamp, status, code, message, details, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer, example: 422 }
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Text in Spanish, ready to show to the user. Never branch on it.
+        details:
+          type: array
+          description: Field errors; empty unless `code` is `VALIDATION_ERROR`.
+          items: { $ref: '#/components/schemas/ErrorDetail' }
+        path: { type: string, example: /api/v1/enrollments }
+    ErrorDetail:
+      type: object
+      required: [field, message]
+      properties:
+        field: { type: string, example: birthDate }
+        message: { type: string, example: La fecha de nacimiento es obligatoria }
+    PageMetadata:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page: { type: integer, example: 0 }
+        size: { type: integer, example: 20 }
+        totalElements: { type: integer, format: int64, example: 42 }
+        totalPages: { type: integer, example: 3 }
+    IdName:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int32 }
+        name: { type: string }
+    PersonRef:
+      type: object
+      required: [id, fullName]
+      properties:
+        id: { type: integer, format: int32 }
+        fullName: { type: string }
+    AthleteRef:
+      type: object
+      required: [id, firstNames, lastNames]
+      properties:
+        id: { type: integer, format: int32 }
+        firstNames: { type: string }
+        lastNames: { type: string }
+    StatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/EntityStatus' }
+    ReasonRequiredRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500, example: No se completó la documentación a tiempo. }
+    ReasonOptionalRequest:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
+    # ------------------------------------------------------------ auth/users
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password, maxLength: 72 }
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresInSeconds, user]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, example: Bearer }
+        expiresInSeconds: { type: integer, example: 3600 }
+        user:
+          type: object
+          required: [id, firstNames, lastNames, role]
+          properties:
+            id: { type: integer, format: int32 }
+            firstNames: { type: string }
+            lastNames: { type: string }
+            role: { $ref: '#/components/schemas/Role' }
+            guardianId: { type: integer, format: int32, nullable: true }
+            coachId: { type: integer, format: int32, nullable: true }
+    RegisterGuardianRequest:
+      type: object
+      required: [firstNames, lastNames, idType, idNumber, email, phone, password, acceptedDataPolicy]
+      properties:
+        firstNames: { type: string, maxLength: 100 }
+        lastNames: { type: string, maxLength: 100 }
+        idType: { type: string, example: CC, description: 'Document type, e.g. CC, CE.' }
+        idNumber: { type: string, maxLength: 20 }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 20 }
+        homeAddress: { type: string, maxLength: 255 }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, description: '8 to 72 characters (72 bytes in UTF-8, the BCrypt limit) with at least one uppercase letter, one lowercase letter, one digit and one symbol. Length violations return 400 `VALIDATION_ERROR`; a missing character class returns 422 `WEAK_PASSWORD`.' }
+        acceptedDataPolicy: { type: boolean, description: Must be true. }
+    CreateUserRequest:
+      type: object
+      required: [role, firstNames, lastNames, idType, idNumber, email, phone, password]
+      properties:
+        role:
+          type: string
+          enum: [ADMIN, COACH]
+        firstNames: { type: string }
+        lastNames: { type: string }
+        idType: { type: string }
+        idNumber: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, description: '8 to 72 characters (72 bytes in UTF-8, the BCrypt limit) with at least one uppercase letter, one lowercase letter, one digit and one symbol. Length violations return 400 `VALIDATION_ERROR`; a missing character class returns 422 `WEAK_PASSWORD`.' }
+        specialty: { type: string, description: Coach only. }
+        yearsOfExperience: { type: integer, minimum: 0, description: Coach only. }
+    UpdateUserRequest:
+      type: object
+      required: [firstNames, lastNames, phone]
+      properties:
+        firstNames: { type: string }
+        lastNames: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        homeAddress: { type: string, description: Guardian only. }
+        specialty: { type: string, description: Coach only. }
+        yearsOfExperience: { type: integer, minimum: 0, description: Coach only. }
+    UpdateOwnProfileRequest:
+      type: object
+      required: [firstNames, lastNames, phone]
+      properties:
+        firstNames: { type: string }
+        lastNames: { type: string }
+        phone: { type: string }
+        homeAddress: { type: string, description: Guardian only. }
+        specialty: { type: string, description: Coach only. }
+        yearsOfExperience: { type: integer, minimum: 0, description: Coach only. }
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, format: password }
+        newPassword: { type: string, format: password, minLength: 8, maxLength: 72, description: '8 to 72 characters (72 bytes in UTF-8, the BCrypt limit) with at least one uppercase letter, one lowercase letter, one digit and one symbol. Length violations return 400 `VALIDATION_ERROR`; a missing character class returns 422 `WEAK_PASSWORD`.' }
+    UserProfile:
+      type: object
+      required: [id, firstNames, lastNames, idType, idNumber, email, phone, role, status]
+      properties:
+        id: { type: integer, format: int32 }
+        idType: { type: string }
+        idNumber: { type: string }
+        firstNames: { type: string }
+        lastNames: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { $ref: '#/components/schemas/EntityStatus' }
+        acceptedDataPolicy: { type: boolean }
+        guardian:
+          type: object
+          nullable: true
+          description: Only for role GUARDIAN.
+          properties:
+            id: { type: integer, format: int32 }
+            homeAddress: { type: string, nullable: true }
+        coach:
+          type: object
+          nullable: true
+          description: Only for role COACH.
+          properties:
+            id: { type: integer, format: int32 }
+            specialty: { type: string, nullable: true }
+            yearsOfExperience: { type: integer, nullable: true }
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/UserProfile' }
+    CoachListItem:
+      type: object
+      required: [id, userId, fullName, status]
+      properties:
+        id: { type: integer, format: int32, description: Coach id. Used by H8 and H11. }
+        userId: { type: integer, format: int32 }
+        fullName: { type: string }
+        specialty: { type: string, nullable: true }
+        yearsOfExperience: { type: integer, nullable: true }
+        status: { $ref: '#/components/schemas/EntityStatus' }
+    GuardianListItem:
+      type: object
+      required: [id, userId, fullName, email, phone]
+      properties:
+        id: { type: integer, format: int32, description: Guardian id. Used by E1. }
+        userId: { type: integer, format: int32 }
+        fullName: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+    GuardianPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/GuardianListItem' }
+    # -------------------------------------------------------------- athletes
+    CreateAthleteRequest:
+      type: object
+      required: [firstNames, lastNames, idType, idNumber, birthDate]
+      properties:
+        guardianId: { type: integer, format: int32, description: Admin only; ignored for guardians. }
+        firstNames: { type: string }
+        lastNames: { type: string }
+        idType: { type: string, example: TI }
+        idNumber: { type: string }
+        birthDate: { type: string, format: date, example: '2010-05-14' }
+        gender: { type: string, example: FEMALE, description: Optional. }
+    UpdateAthleteRequest:
+      type: object
+      required: [firstNames, lastNames, idType, idNumber, birthDate]
+      properties:
+        firstNames: { type: string }
+        lastNames: { type: string }
+        idType: { type: string }
+        idNumber: { type: string }
+        birthDate: { type: string, format: date }
+        gender: { type: string }
+    Athlete:
+      type: object
+      required: [id, guardianId, firstNames, lastNames, idType, idNumber, birthDate, age, hasActiveEnrollment]
+      properties:
+        id: { type: integer, format: int32 }
+        guardianId: { type: integer, format: int32 }
+        firstNames: { type: string }
+        lastNames: { type: string }
+        idType: { type: string }
+        idNumber: { type: string }
+        birthDate: { type: string, format: date }
+        age: { type: integer, description: Computed on the response date. }
+        gender: { type: string, nullable: true }
+        hasActiveEnrollment: { type: boolean, description: The athlete has an enrollment in `PENDING_REVIEW` or `ACTIVE`. }
+    AthletePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/Athlete' }
+    # ----------------------------------------------------------- enrollments
+    GroupAvailability:
+      type: object
+      required: [groupId, groupName, discipline, coach, schedules, maxCapacity, occupiedSpots, availableSpots]
+      properties:
+        groupId: { type: integer, format: int32 }
+        groupName: { type: string }
+        discipline:
+          type: object
+          required: [id, name, monthlyFee]
+          properties:
+            id: { type: integer, format: int32 }
+            name: { type: string }
+            monthlyFee: { type: number, multipleOf: 0.01, description: 'COP, DECIMAL(10,2).' }
+        coach: { $ref: '#/components/schemas/PersonRef' }
+        schedules:
+          type: array
+          items: { $ref: '#/components/schemas/Schedule' }
+        maxCapacity: { type: integer }
+        occupiedSpots: { type: integer, description: In-force enrollments that started on or before the period. }
+        availableSpots: { type: integer, description: '`maxCapacity` minus all in-force enrollments, never negative.' }
+    CreateEnrollmentRequest:
+      type: object
+      required: [athleteId, groupId, period]
+      properties:
+        athleteId: { type: integer, format: int32 }
+        groupId: { type: integer, format: int32 }
+        period: { $ref: '#/components/schemas/Period' }
+    EnrollmentSummary:
+      type: object
+      required: [id, athlete, group, discipline, period, status, paymentStatus, paymentReported, createdAt]
+      properties:
+        id: { type: integer, format: int32 }
+        athlete: { $ref: '#/components/schemas/AthleteRef' }
+        group: { $ref: '#/components/schemas/IdName' }
+        discipline: { $ref: '#/components/schemas/IdName' }
+        period: { $ref: '#/components/schemas/Period' }
+        status: { $ref: '#/components/schemas/EnrollmentStatus' }
+        paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
+        paymentReported: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    EnrollmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/EnrollmentSummary'
+        - type: object
+          required: [schedules]
+          properties:
+            schedules:
+              type: array
+              items: { $ref: '#/components/schemas/Schedule' }
+            reviewNotes: { type: string, nullable: true, description: Last message or reason written by the admin. }
+            confirmedAt: { type: string, format: date-time, nullable: true }
+    EnrollmentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/EnrollmentSummary' }
+    ConfirmEnrollmentRequest:
+      type: object
+      properties:
+        groupId: { type: integer, format: int32, description: Optional. Another group of the same discipline. }
+        payment: { $ref: '#/components/schemas/RegisterPaymentRequest' }
+    ChangeGroupRequest:
+      type: object
+      required: [groupId]
+      properties:
+        groupId: { type: integer, format: int32 }
+    PaymentReportRequest:
+      type: object
+      properties:
+        paymentDate: { type: string, format: date }
+        notes: { type: string, maxLength: 255 }
+    RegisterPaymentRequest:
+      type: object
+      required: [amountPaid, paymentDate]
+      properties:
+        amountPaid: { type: number, multipleOf: 0.01, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, description: 'COP, DECIMAL(10,2).', example: 120000 }
+        paymentDate: { type: string, format: date, description: Cannot be in the future. }
+        receiptReference: { type: string, maxLength: 50, description: 'The MER column allows 100; the contract keeps 50.' }
+        notes: { type: string, maxLength: 255 }
+    PaymentStatusRequest:
+      type: object
+      required: [paymentStatus]
+      properties:
+        paymentStatus:
+          type: string
+          enum: [OVERDUE]
+    Payment:
+      type: object
+      required: [id, enrollmentId, amountPaid, paymentDate]
+      properties:
+        id: { type: integer, format: int32 }
+        enrollmentId: { type: integer, format: int32 }
+        athlete: { $ref: '#/components/schemas/AthleteRef' }
+        discipline: { $ref: '#/components/schemas/IdName' }
+        period:
+          allOf: [{ $ref: '#/components/schemas/Period' }]
+          description: Month covered by the payment, i.e. the `YYYY-MM` of `paymentDate`.
+        amountPaid: { type: number, multipleOf: 0.01, description: 'COP, DECIMAL(10,2).' }
+        paymentDate: { type: string, format: date }
+        receiptReference: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        registeredBy: { $ref: '#/components/schemas/PersonRef' }
+        createdAt: { type: string, format: date-time }
+    PaymentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/Payment' }
+    # --------------------------------------------------------------- catalog
+    DisciplineRequest:
+      type: object
+      required: [name, monthlyFee]
+      properties:
+        name: { type: string, maxLength: 100, example: Fútbol }
+        description: { type: string, maxLength: 500 }
+        monthlyFee: { type: number, multipleOf: 0.01, minimum: 0, exclusiveMinimum: true, maximum: 99999999.99, description: 'COP, DECIMAL(10,2).', example: 120000 }
+    Discipline:
+      type: object
+      required: [id, name, monthlyFee, status]
+      properties:
+        id: { type: integer, format: int32 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        monthlyFee: { type: number, multipleOf: 0.01, description: 'COP, DECIMAL(10,2).' }
+        status: { $ref: '#/components/schemas/EntityStatus' }
+    Schedule:
+      type: object
+      required: [id, dayOfWeek, startTime, endTime]
+      properties:
+        id: { type: integer, format: int32 }
+        dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
+        startTime: { $ref: '#/components/schemas/Time' }
+        endTime: { $ref: '#/components/schemas/Time' }
+    ScheduleRequest:
+      type: object
+      required: [dayOfWeek, startTime, endTime]
+      properties:
+        dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
+        startTime: { $ref: '#/components/schemas/Time' }
+        endTime: { $ref: '#/components/schemas/Time' }
+    Group:
+      type: object
+      required: [id, name, discipline, coach, maxCapacity, status, schedules]
+      properties:
+        id: { type: integer, format: int32 }
+        name: { type: string }
+        discipline: { $ref: '#/components/schemas/IdName' }
+        coach: { $ref: '#/components/schemas/PersonRef' }
+        maxCapacity: { type: integer, minimum: 1, maximum: 15 }
+        status: { $ref: '#/components/schemas/EntityStatus' }
+        schedules:
+          type: array
+          items: { $ref: '#/components/schemas/Schedule' }
+    CreateGroupRequest:
+      type: object
+      required: [disciplineId, coachId, name, maxCapacity]
+      properties:
+        disciplineId: { type: integer, format: int32 }
+        coachId: { type: integer, format: int32 }
+        name: { type: string, maxLength: 100 }
+        maxCapacity: { type: integer, minimum: 1, maximum: 15 }
+    UpdateGroupRequest:
+      type: object
+      required: [name, maxCapacity]
+      properties:
+        name: { type: string, maxLength: 100 }
+        maxCapacity: { type: integer, minimum: 1, maximum: 15 }
+    AssignCoachRequest:
+      type: object
+      required: [coachId]
+      properties:
+        coachId: { type: integer, format: int32 }
+    # -------------------------------------------------------------- sessions
+    CreateSessionRequest:
+      type: object
+      required: [groupId, date, startTime, endTime]
+      properties:
+        groupId: { type: integer, format: int32 }
+        date: { type: string, format: date }
+        startTime: { $ref: '#/components/schemas/Time' }
+        endTime: { $ref: '#/components/schemas/Time' }
+        notes: { type: string, maxLength: 500 }
+    UpdateSessionRequest:
+      type: object
+      required: [date, startTime, endTime]
+      properties:
+        date: { type: string, format: date }
+        startTime: { $ref: '#/components/schemas/Time' }
+        endTime: { $ref: '#/components/schemas/Time' }
+        notes: { type: string, maxLength: 500 }
+    GenerateSessionsRequest:
+      type: object
+      required: [groupId, dateFrom, dateTo]
+      properties:
+        groupId: { type: integer, format: int32 }
+        dateFrom: { type: string, format: date }
+        dateTo: { type: string, format: date }
+        notify: { type: boolean, default: false }
+    TrainingSession:
+      type: object
+      required: [id, group, discipline, coach, date, startTime, endTime, status, attendanceRecorded]
+      properties:
+        id: { type: integer, format: int32 }
+        group: { $ref: '#/components/schemas/IdName' }
+        discipline: { $ref: '#/components/schemas/IdName' }
+        coach: { $ref: '#/components/schemas/PersonRef' }
+        date: { type: string, format: date }
+        startTime: { $ref: '#/components/schemas/Time' }
+        endTime: { $ref: '#/components/schemas/Time' }
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        attendanceRecorded: { type: boolean }
+        notes: { type: string, nullable: true, description: Free notes; on a cancelled session it holds the cancellation reason. }
+        athletes:
+          type: array
+          description: Only in guardian responses; the guardian's athletes that attend this session.
+          items:
+            type: object
+            required: [id, firstNames]
+            properties:
+              id: { type: integer, format: int32 }
+              firstNames: { type: string }
+    GenerateSessionsResponse:
+      type: object
+      required: [created, skipped, sessions]
+      properties:
+        created: { type: integer }
+        skipped: { type: integer }
+        sessions:
+          type: array
+          items: { $ref: '#/components/schemas/TrainingSession' }
+    # ------------------------------------------------------------ attendance
+    AttendanceRosterEntry:
+      type: object
+      required: [athleteId, firstNames, lastNames, status]
+      properties:
+        athleteId: { type: integer, format: int32 }
+        firstNames: { type: string }
+        lastNames: { type: string }
+        status:
+          allOf:
+            - $ref: '#/components/schemas/AttendanceStatus'
+          nullable: true
+    AttendanceRoster:
+      type: object
+      required: [sessionId, group, date, status, attendanceRecorded, records]
+      properties:
+        sessionId: { type: integer, format: int32 }
+        group: { $ref: '#/components/schemas/IdName' }
+        date: { type: string, format: date }
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        attendanceRecorded: { type: boolean }
+        records:
+          type: array
+          description: Roster ordered by last name; `status` is null until recorded.
+          items: { $ref: '#/components/schemas/AttendanceRosterEntry' }
+    RecordAttendanceRequest:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [athleteId, status]
+            properties:
+              athleteId: { type: integer, format: int32 }
+              status: { $ref: '#/components/schemas/AttendanceStatus' }
+    AttendanceRecord:
+      type: object
+      required: [id, sessionId, date, group, discipline, athlete, status, recordedAt]
+      properties:
+        id: { type: integer, format: int32 }
+        sessionId: { type: integer, format: int32 }
+        date: { type: string, format: date }
+        group: { $ref: '#/components/schemas/IdName' }
+        discipline: { $ref: '#/components/schemas/IdName' }
+        athlete: { $ref: '#/components/schemas/AthleteRef' }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        recordedAt: { type: string, format: date-time }
+    AttendanceRecordPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items: { $ref: '#/components/schemas/AttendanceRecord' }
+    # --------------------------------------------------------------- reports
+    EnrollmentReport:
+      type: object
+      required: [period, totalRequests, byStatus, completionRate, abandonmentRate, averageConfirmationHours, byDiscipline, payments]
+      properties:
+        period: { $ref: '#/components/schemas/Period' }
+        totalRequests: { type: integer }
+        byStatus:
+          type: object
+          description: Count per enrollment status.
+          additionalProperties: { type: integer }
+          example: { PENDING_REVIEW: 6, ACTIVE: 20, REJECTED: 1, CANCELLED: 3 }
+        completionRate: { type: number, format: double, description: Percent., example: 66.7 }
+        abandonmentRate: { type: number, format: double, description: Percent., example: 10.0 }
+        averageConfirmationHours: { type: number, format: double, nullable: true, example: 18.5 }
+        byDiscipline:
+          type: array
+          items:
+            type: object
+            required: [disciplineId, name, requests, active]
+            properties:
+              disciplineId: { type: integer, format: int32 }
+              name: { type: string }
+              requests: { type: integer }
+              active: { type: integer }
+        payments:
+          type: object
+          properties:
+            upToDate: { type: integer }
+            overdue: { type: integer }
+    AttendanceReport:
+      type: object
+      required: [scheduledSessions, completedSessions, recordingCoverage, attendanceRate, byGroup]
+      properties:
+        scheduledSessions: { type: integer }
+        completedSessions: { type: integer }
+        recordingCoverage: { type: number, format: double, description: 'Percent. Target of RNF-10: 90 or more.', example: 92.5 }
+        attendanceRate: { type: number, format: double, nullable: true, description: Percent., example: 84.2 }
+        byGroup:
+          type: array
+          items:
+            type: object
+            required: [groupId, groupName, discipline, scheduledSessions, completedSessions, attendanceRate]
+            properties:
+              groupId: { type: integer, format: int32 }
+              groupName: { type: string }
+              discipline: { type: string }
+              scheduledSessions: { type: integer }
+              completedSessions: { type: integer }
+              attendanceRate: { type: number, format: double, nullable: true }
+    AthleteAttendanceReport:
+      type: object
+      required: [athleteId, recordedSessions, present, absent, attendanceRate, byGroup]
+      properties:
+        athleteId: { type: integer, format: int32 }
+        recordedSessions: { type: integer }
+        present: { type: integer }
+        absent: { type: integer }
+        attendanceRate: { type: number, format: double, nullable: true, description: Percent. }
+        byGroup:
+          type: array
+          items:
+            type: object
+            required: [groupId, groupName, present, absent, attendanceRate]
+            properties:
+              groupId: { type: integer, format: int32 }
+              groupName: { type: string }
+              present: { type: integer }
+              absent: { type: integer }
+              attendanceRate: { type: number, format: double, nullable: true }
+    RecurrentAbsence:
+      type: object
+      required: [athlete, group, consecutiveAbsences]
+      properties:
+        athlete: { $ref: '#/components/schemas/AthleteRef' }
+        group: { $ref: '#/components/schemas/IdName' }
+        consecutiveAbsences: { type: integer, example: 3 }
+        lastAttendance: { type: string, format: date, nullable: true }
