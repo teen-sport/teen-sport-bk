@@ -1,8 +1,9 @@
-# ADR-010: CI/CD con Jenkins y despliegue previsto en Azure
+# ADR-010: CI/CD con GitHub Actions y despliegue en Railway
 
-- **Estado:** Propuesto en el documento de arquitectura; confirmar vigencia antes de implementarlo.
-- **Contexto:** Se requiere automatizar build, pruebas y despliegue de frontend, backend y base de datos administrada.
-- **Decisión documentada:** Jenkins para CI/CD y Azure como plataforma prevista (App Service para backend, servicio de base de datos relacional y Static Web Apps para frontend).
-- **Alternativas:** GitHub Actions; AWS; GCP.
-- **Justificación:** El documento menciona flexibilidad de Jenkins y Azure for Students.
-- **Consecuencias:** Mantener Jenkins, controlar consumo de créditos, gestionar secretos mediante variables de entorno. Por ahora hay una única configuración general, sin separación de ambientes. No desplegar ni aprovisionar recursos sin revisar configuración y permisos vigentes.
+- **Estado:** Aceptada según la descripción de arquitectura (ADR-10 del SAD). Reemplaza la versión anterior de este ADR, que proponía Jenkins y Azure.
+- **Contexto:** Se requiere alojar el frontend Angular, el backend Spring Boot y una base de datos relacional, y automatizar compilación, pruebas y despliegue con un equipo pequeño sin personal dedicado a infraestructura.
+- **Decisión:** Git como control de versiones con el repositorio en GitHub, GitHub Actions para integración y despliegue continuo (Commit → Build → Test → Artifact → Deploy → Monitoring) y Railway como plataforma en la nube para el frontend, el backend y la base de datos administrada.
+- **Alternativas:** Jenkins como herramienta de CI/CD; Microsoft Azure, AWS y GCP como proveedores de nube; Render como plataforma de despliegue.
+- **Justificación:** GitHub Actions está integrado en el repositorio y sus pipelines son archivos YAML versionados, sin servidor de CI propio. Railway despliega directamente desde GitHub, aprovisiona la base de datos y centraliza variables de entorno, logs y métricas; Azure, AWS o GCP estarían sobredimensionados para el tamaño del sistema.
+- **Consecuencias:** El sistema depende de la disponibilidad de GitHub y Railway. El token de despliegue de Railway, las credenciales de la base de datos y la API key de Brevo se guardan en GitHub Secrets y en las variables de entorno de Railway, nunca en el código. Railway cobra por consumo, así que debe monitorearse. Railway despliega contenedores: el backend usa el `Dockerfile` del repositorio y el frontend se empaqueta con un servidor de archivos estáticos. Hay una única configuración general, sin separación de ambientes.
+- **Implementación (2026-10-19):** `.github/workflows/` contiene `ci.yml`, `cd.yml` (despliegue con la CLI de Railway y smoke test), `coverage.yml`, `sonarqube.yml` y `pr-source-guard.yml`.

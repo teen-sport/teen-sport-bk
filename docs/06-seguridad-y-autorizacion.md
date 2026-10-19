@@ -30,7 +30,7 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 
 ## Datos personales de menores
 - Minimizar los campos devueltos por cada DTO.
-- Evitar exponer información médica, documentos o direcciones salvo necesidad autorizada.
+- Evitar exponer información médica, documentos o direcciones salvo necesidad autorizada. Los documentos de la matrícula (autorización del acudiente y certificado médico) solo pueden consultarlos el acudiente dueño y el administrador.
 - Validar y conservar la aceptación de la política de tratamiento de datos según requisitos.
 - No enviar a Brevo más información que la necesaria para el correo.
 - No usar datos reales de menores en pruebas compartidas o ejemplos.
@@ -47,6 +47,8 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 
 ## Pruebas obligatorias
 - Token ausente, inválido y expirado.
+- Token vigente de una cuenta inactivada.
+- Recuperación de contraseña: token vencido, reutilizado o alterado, y respuesta idéntica para correos existentes e inexistentes.
 - Usuario autenticado con rol incorrecto.
 - Usuario con rol correcto intentando acceder a recurso ajeno.
 - Acudiente manipulando `guardianId`/`athleteId` en el request.
@@ -68,6 +70,12 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - Pagos (HU36): `/enrollments/*/payments` y `/enrollments/*/payment-status` solo `ADMIN`; `/enrollments/*/payment-report` solo `GUARDIAN`, sobre matrículas de sus deportistas; `/payments` `ADMIN` y `GUARDIAN`, y el acudiente solo recibe los pagos de sus deportistas (el filtro lo fija el token). Estas reglas se evalúan antes que la regla general de `/enrollments/**`.
 - Sesiones y asistencia (HU39): `GET /sessions/*/attendance` para `ADMIN` y `COACH`, y su `PUT` solo `COACH`; `GET /sessions/**` para los tres roles; el resto de `/sessions/**` para `ADMIN` y `COACH`; `/attendance-records` para los tres roles (filtro y `@PreAuthorize`). En el servicio, `GroupAccessPolicy` limita al entrenador a los grupos que tiene a cargo (y solo él registra la asistencia), y el acudiente solo ve sesiones de grupos donde sus deportistas tienen una matrícula `ACTIVE` ya iniciada y solo las marcas de sus deportistas. Las respuestas exponen del deportista solo id, nombres y apellidos.
 - Grupos y franjas (HU33): `GET /groups/**` para `ADMIN` y `COACH`; escritura en `/groups/**` y `/schedules/**` solo `ADMIN` (filtro y `@PreAuthorize`). La propiedad de los grupos se comprueba en `service/GroupAccessPolicy` con el `coachId` del token.
+
+## Pendientes de seguridad (Proceso 3, documentos oficiales v02)
+- **Recuperación de contraseña** (ADR-07: "mecanismo seguro de recuperación de contraseña"): token aleatorio de un solo uso, guardado solo como hash, con vencimiento corto; la solicitud responde igual exista o no el correo; el restablecimiento aplica `PasswordPolicy`; los endpoints son públicos y deben añadirse explícitamente en `SecurityConfig`. La entrega del enlace depende del adaptador de correo (fuera de la entrega actual).
+- **Cuentas inactivas con token vigente**: hoy el JWT no se contrasta con `users.status`, de modo que una cuenta inactivada (U10) puede operar hasta que su token venza. El Plan de Calidad exige rechazar los accesos de cuentas inactivas; se debe verificar el estado del usuario al autenticar cada solicitud y responder `403 USER_INACTIVE` (o el código que fije el contrato).
+- **Duplicados concurrentes**: dos registros simultáneos con el mismo correo o documento responden `500` porque la violación de la restricción única no se traduce. Debe responder `409` con el código de duplicado correspondiente (RNF-11, RNF-13).
+- **Cierre de sesión**: se resuelve en el cliente descartando el token; con la verificación de cuentas inactivas no se requiere lista de revocación.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.
