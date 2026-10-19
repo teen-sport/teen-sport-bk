@@ -70,12 +70,12 @@ Decisiones (2026-10-13):
 - Cupos: una matrícula vigente ocupa cupo desde su mes de inicio en adelante, así que E6, H9 (y E12/E15 en HU37) validan contra todas las matrículas vigentes del grupo. En E5, `occupiedSpots` cuenta las que empezaron en el periodo o antes y `availableSpots` es la capacidad menos todas las vigentes (mínimo 0).
 - Filtro `period` de E7: matrículas vigentes en ese mes (inicio igual o anterior y, sin filtro de estado, `PENDING_REVIEW` o `ACTIVE`).
 - El motivo opcional de E14 se guarda en `review_notes` (HU37).
-- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 7. Pago dentro de E12: cerrado en HU36 (Fase 5).
+- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 8. Pago dentro de E12: cerrado en HU36 (Fase 5).
 
 **Estado (2026-10-14): HU35 (PR #20) y HU37 (PR #21) integradas en `development`.**
 - HU35: entidad `enrollments` (sin las columnas de soportes documentales); E5 `GET /availability`, E6 `POST /enrollments`, E7 `GET /enrollments`, E8 `GET /enrollments/{id}`; cupos en `SpotCounter` (una consulta agrupada para E5); E6 bloquea el deportista y luego el grupo antes de comprobar duplicado y cupo; H9 `CAPACITY_BELOW_OCCUPIED` y H10 `GROUP_HAS_ACTIVITY` (matrículas) con bloqueo del grupo; `hasActiveEnrollment` real en E1–E4 (en lote en E2). Los mappers de grupos y matrículas pasan a ser funciones estáticas. `./gradlew check`: 287 pruebas en verde.
 - HU37: E12 `confirm`, E13 `reject`, E14 `cancel`, E15 `group` en `EnrollmentLifecycleService`; cada operación bloquea la matrícula y, al cambiar de grupo, el grupo de destino antes de contar cupos; reglas de grupo compartidas con E6 en `GroupEnrollmentPolicy`; reglas por URL para que solo `ADMIN` revise o mueva matrículas. `./gradlew check`: 310 pruebas en verde.
-- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 7).
+- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 8).
 
 ## Fase 5 — Pagos presenciales
 - Reporte por acudiente.
@@ -110,19 +110,28 @@ Decisiones (2026-10-14):
 
 **Estado (2026-10-14): HU39 implementada, pendiente de revisión.**
 - HU39 en `feature/HU39/attendance-management`: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`. `./gradlew check` completo: pendiente de ejecutar.
-- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Fase 7.
+- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Fase 8.
 
-## Fase 7 — Informes y correo
-- Informes R1–R4 con consultas probadas.
-- Adaptador Brevo desacoplado y notificaciones posteriores al commit.
-- Observabilidad y pruebas de fallos del proveedor.
+## Fase 7 — Alineación con los documentos oficiales v02 (Procesos 1 y 3)
+Origen: la Definición del Proyecto y el Plan de Calidad v02 (19/10/2026) reemplazaron el proceso de torneos por el de registro, autenticación y gestión de usuarios, y el proyecto debe adaptarse a ellos.
 
-## Fase 8 — Funcionalidades pendientes de contrato
-- Definir API de torneos antes de implementarla, ya que el MER contiene entidades no expuestas por OpenAPI.
-- Definir API y ciclo de vida de notificaciones si requiere consultas desde el frontend.
+**Estado (2026-10-19): documentación interna alineada; implementación pendiente.**
+- Hecho: actualización de `CLAUDE.md`, `docs/01`–`docs/10`, ADR-010 interno y skills de `.claude/` (alcance por procesos, exclusión de torneos, RNF v02, despliegue en GitHub Actions y Railway, cambios pendientes del MER y del contrato).
+- 7.1 Seguridad de cuentas (P3): rechazar tokens de cuentas inactivas y traducir los duplicados concurrentes de registro a `409`.
+- 7.2 Recuperación de contraseña (P3): contrato, tabla de tokens, endpoints públicos y puerto de notificaciones; la entrega por correo llega con la Fase 8.
+- 7.3 Documentación de la matrícula (P1): contrato (IDs `E9–E11` reservados), mapeo de las columnas del MER, almacenamiento de archivos y validación antes de E12.
+- 7.4 Renovación por periodo (P1): según la decisión que se tome.
+- 7.5 Indicadores: R1 (P1) y reporte de usuarios del P3, con `ReportController`/`ReportService`; consulta consolidada del estado de pago por deportista.
+
+Decisiones pendientes: almacenamiento de documentos y casos en que aplica el certificado médico; modelo de renovación; si la recuperación de contraseña se construye antes de la integración de correo.
+
+## Fase 8 — Correo y notificaciones (fuera de la entrega actual)
+- Definir catálogo de eventos (registro de cuenta, recuperación de contraseña, inscripción, confirmación y rechazo, falta de cupos, horarios y novedades) y el ciclo de vida en `notifications`.
+- Componente `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit.
+- Observabilidad, reintentos y pruebas de fallos del proveedor; medición de RNF-14.
 
 ## Fase 9 — Calidad y despliegue
-- Ejecutar suite completa, revisar cobertura y Javadoc.
-- Medir RNF de rendimiento y seguridad.
+- Ejecutar suite completa, revisar cobertura (JaCoCo) y Javadoc (RNF-17).
+- Medir RNF de rendimiento (RNF-04, RNF-06, RNF-07) y seguridad (RNF-13, RNF-15, RNF-16) con evidencia reproducible.
 - Validar CORS, secretos y configuración general.
-- Preparar pipeline Jenkins y despliegue Azure cuando estén aprobados.
+- Mantener el pipeline de GitHub Actions y el despliegue en Railway (ADR-10).

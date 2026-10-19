@@ -21,9 +21,11 @@ El backend debe exponer una API REST desarrollada con Java y Spring Boot. El fro
 
 Los roles funcionales del sistema son:
 
-- ADMINISTRADOR: gestiona usuarios, disciplinas, grupos, cupos, horarios, estados de pago, torneos e informes.
+- ADMINISTRADOR: crea y administra las cuentas de entrenadores y administradores, activa o inactiva cuentas, gestiona disciplinas, grupos, cupos y horarios, valida la documentación y confirma matrículas, actualiza estados de pago y consulta informes.
 - ENTRENADOR: consulta y gestiona las sesiones de entrenamiento que le corresponden, registra asistencias de sus deportistas y consulta informes de asistencia de sus grupos.
-- ACUDIENTE: gestiona las inscripciones de sus deportistas, consulta estados de pago, asistencia y torneos, y puede reportar pagos realizados presencialmente.
+- ACUDIENTE: se autorregistra, gestiona los perfiles y las inscripciones de sus deportistas, aporta la documentación de la matrícula, consulta estados de pago y asistencia, y puede reportar pagos realizados presencialmente.
+
+El deportista no es usuario del sistema; su perfil lo administra su acudiente.
 
 Los deportistas son menores de edad, entre 12 y 17 años, según el alcance documentado. Los datos deben tratarse con especial cuidado.
 
@@ -199,14 +201,14 @@ TeenSport utiliza una base de datos relacional y Spring Data JPA como mecanismo 
 
 ## 6. Alcance funcional
 
-El alcance documentado incluye autenticación, usuarios, inscripciones, disciplinas, grupos, horarios, sesiones, asistencia, torneos, resultados, informes, notificaciones y seguimiento administrativo del estado de los pagos.
+El alcance documentado se organiza en tres procesos: registro, autenticación y gestión de usuarios (incluida la recuperación de contraseña); inscripción y matrícula (disciplinas, grupos, horarios, cupos, documentación, pagos presenciales y estado de pago); y entrenamientos y asistencia. Incluye además informes e indicadores y notificaciones por correo.
 
 No implementes por iniciativa propia:
 
 - Pasarela de pagos en línea.
 - Nómina.
 - Inventario de implementos deportivos.
-- Gestión de torneos externos.
+- Eventos o torneos deportivos, internos o externos.
 
 El reporte de un pago presencial no debe convertirse automáticamente en una integración de pago en línea.
 

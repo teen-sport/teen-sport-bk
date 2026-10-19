@@ -4,7 +4,13 @@
 
 TeenSport es una API REST desarrollada para digitalizar la operación de una academia deportiva multidisciplinar.
 
-El sistema gestiona usuarios y roles, inscripción y matrícula de deportistas, disciplinas, grupos, horarios, entrenamientos, asistencia, pagos presenciales, torneos internos, resultados, reportes y notificaciones por correo.
+El sistema se organiza en tres procesos de negocio:
+
+- Proceso 1 — Gestión de Inscripción y Matrícula: perfiles de deportistas seleccionados por el acudiente, disciplinas, grupos, horarios y cupos, documentación de la matrícula, confirmación, pagos presenciales y estado de pago (al día / en mora).
+- Proceso 2 — Gestión de Entrenamientos y Asistencia: sesiones, asignación de entrenadores, registro y consulta de asistencia e indicadores.
+- Proceso 3 — Registro, autenticación y gestión de usuarios: autorregistro de acudientes, creación de entrenadores y administradores, inicio y cierre de sesión, recuperación de contraseña por correo, perfiles, activación e inactivación de cuentas y vinculación de deportistas a su acudiente.
+
+Además genera reportes e indicadores de los procesos y notificaciones por correo. Los torneos y eventos, internos o externos, están fuera del alcance.
 
 El frontend Angular y el backend son aplicaciones independientes. Este repositorio contiene exclusivamente el backend.
 
@@ -26,6 +32,14 @@ El frontend Angular y el backend son aplicaciones independientes. Este repositor
 Antes de agregar dependencias o cambiar versiones, revisa la configuración real del proyecto. No inventes versiones ni sustituyas tecnologías sin autorización.
 
 ## 3. Fuentes de verdad
+
+Los documentos oficiales del proyecto prevalecen sobre la documentación de este repositorio:
+
+- Definición del Proyecto (versión 02, 19/10/2026): alcance, procesos de negocio, actores y KPI.
+- Plan de Gestión de la Calidad del Proyecto (versión 02, 19/10/2026): métricas y requisitos no funcionales RNF-01 a RNF-17.
+- Software Architecture Description – TeenSport (C4 y ADR-01 a ADR-10).
+
+La documentación de `docs/` los traduce al backend. Si encuentras una diferencia entre ellos, los documentos oficiales mandan: registra la diferencia y adapta el proyecto.
 
 Antes de implementar una funcionalidad, consulta los documentos pertinentes:
 
@@ -187,7 +201,7 @@ No implementar:
 - Pasarelas de pago en línea.
 - Nómina ni contratación.
 - Inventario de implementos deportivos.
-- Torneos con participantes externos a la academia.
+- Organización de eventos o torneos deportivos, internos o con participantes externos a la academia.
 
 Los pagos son presenciales y su estado se actualiza manualmente según las responsabilidades definidas en los requisitos.
 
