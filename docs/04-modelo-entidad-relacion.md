@@ -17,15 +17,13 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 | `disciplines` | Catálogo de disciplinas con nombre (único), descripción, mensualidad y estado. |
 | `groups` | Grupo de entrenamiento, disciplina, entrenador, nombre, capacidad máxima y estado. El nombre físico de la tabla es `groups`, el del MER y el de la base desplegada (decisión del 2026-10-13); se descartó `training_groups`, que el contrato justificaba solo para MySQL 8. |
 | `schedules` | Horarios semanales asociados a un grupo, con día y hora de inicio/fin. |
-| `enrollments` | Matrícula del deportista a un grupo desde un mes de inicio (`period_month`), vigente mes a mes hasta su rechazo o cancelación; incluye estado, estado de pago, notas de revisión, fecha de confirmación, reporte de pago (indicador, fecha y nota) y fecha de creación. |
+| `enrollments` | Matrícula del deportista a un grupo desde un mes de inicio (`period_month`), vigente mes a mes hasta su rechazo o cancelación; incluye estado, estado de pago, rutas de la autorización del acudiente y del certificado médico, notas de revisión, fecha de confirmación, reporte de pago (indicador, fecha y nota) y fecha de creación. Las columnas de documentos aún no se mapean (ver "Cambios pendientes"). |
 | `payment_history` | Historial de pagos asociados a matrícula (varios por matrícula, como máximo uno por mes calendario de `payment_date`), con usuario administrador que registra, monto, fecha, referencia de recibo, notas y creación. |
 | `training_sessions` | Sesiones programadas de grupo, con entrenador, fecha, horarios, estado y notas. |
 | `attendance_records` | Marca de asistencia asociada a sesión y deportista, con fechas de creación y registro; la operación A8 permite sobrescribir marcas de una sesión. |
 | `notifications` | Registro de notificaciones asociadas a un usuario: tipo, asunto, estado de entrega, intentos y fecha de creación. |
-| `tournaments` | Torneos internos asociados a disciplina y administrador creador, con nombre, categoría, reglas, modalidad, fechas y estado. |
-| `tournament_teams` | Equipos dentro de un torneo, con nombre. |
-| `tournament_registrations` | Inscripciones de deportistas a torneos, con equipo opcional, estado y fecha de creación. |
-| `tournament_matches` | Partidos de un torneo, con fecha, lugar, equipos o deportistas local/visitante (opcionales), marcadores y estado. |
+
+Las tablas `tournaments`, `tournament_teams`, `tournament_registrations` y `tournament_matches` del diagrama pertenecían al antiguo proceso de torneos, excluido del alcance desde la Definición del Proyecto v02 (19/10/2026). No se implementan y deben retirarse del diagrama.
 
 ## Tipos y convenciones de mapeo
 - Las claves primarias y foráneas son `INT` en el MER y se mapean como `Integer` en las entidades JPA.
@@ -43,7 +41,6 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 - `enrollments` 1:N `payment_history`; `users` (administrador) 1:N `payment_history`.
 - `training_sessions` 1:N `attendance_records`; cada registro referencia un deportista.
 - `users` 1:N `notifications`.
-- `tournaments` se relaciona con `tournament_teams`, `tournament_registrations` y `tournament_matches`.
 
 ## Reglas de implementación
 1. Verificar los nombres y tipos reales contra el diagrama antes de generar entidades JPA.
@@ -59,10 +56,16 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 - El estado del entrenador se toma de `users.status`.
 - El `period_month` (VARCHAR) se guarda como `YYYY-MM`, de modo que el orden del texto coincide con el cronológico y las consultas de cupos lo comparan directamente.
 - El `period_month` de una matrícula es su mes de inicio. Una matrícula puede tener varios pagos, como máximo uno por mes calendario; el mes que cubre un pago es el de su `payment_date` y el más reciente es el último pago.
-- El sistema no gestiona soportes documentales adjuntos (certificado médico ni autorización del acudiente). Las columnas `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path` del diagrama no se implementan; el diagrama se actualizará para retirarlas.
+- ~~El sistema no gestiona soportes documentales adjuntos (certificado médico ni autorización del acudiente).~~ **Revocada el 2026-10-19:** la Definición del Proyecto v02 exige validar la autorización del acudiente y el certificado médico (si aplica) en la matrícula. Las columnas `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path` se conservan en el diagrama y deben mapearse cuando se implemente la funcionalidad.
+
+## Cambios pendientes del diagrama (`MER.pdf`)
+Derivados de la Definición del Proyecto v02 (19/10/2026). Hasta que el diagrama se actualice, esta lista prevalece sobre él:
+1. Retirar `tournaments`, `tournament_teams`, `tournament_registrations` y `tournament_matches` y sus relaciones (`fk_tournament_admin`, `fk_tournament_discipline`, `fk_team_tournament`, `fk_registration_tournament`, etc.).
+2. Conservar `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path`; definir si la validación del administrador requiere columnas adicionales (estado o fecha de validación).
+3. Añadir una tabla para los tokens de recuperación de contraseña (usuario, hash del token, vencimiento, fecha de uso y creación). Su diseño exacto se define junto con el contrato de la recuperación.
+4. Definir si la renovación de la matrícula por periodo requiere cambios en `enrollments`.
 
 ## Discrepancias / verificaciones pendientes
-- El contrato API actual no incluye rutas de torneos aunque las tablas existen en el MER.
 - Verificar si las notificaciones se persisten antes o después del envío de correo y cómo se registran fallos/reintentos.
 - La regla de matrícula duplicada (una sola matrícula vigente por deportista y disciplina) depende del estado y de la disciplina del grupo, por lo que no es una restricción única de columnas: se valida en el servicio de matrículas dentro de la transacción que reserva el cupo.
 - La regla de un pago por mes se deriva del mes de `payment_date`, que no es una columna propia; se valida en el servicio de pagos y no con una restricción única de base de datos.
