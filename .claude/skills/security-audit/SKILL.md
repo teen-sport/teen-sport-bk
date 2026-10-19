@@ -21,7 +21,7 @@ TeenSport es una academia deportiva multidisciplinaria cuyo sistema contempla lo
 - ENTRENADOR.
 - ACUDIENTE.
 
-El sistema administra información relacionada con usuarios, deportistas menores de edad, inscripciones, disciplinas, grupos, horarios, asistencia, pagos reportados, torneos, resultados e informes.
+El sistema administra información relacionada con usuarios, deportistas menores de edad, inscripciones, disciplinas, grupos, horarios, documentación de la matrícula, asistencia, pagos reportados e informes.
 
 La información personal de los menores requiere especial protección. El diseño debe tener en cuenta los principios y obligaciones aplicables de la Ley 1581 de 2012 y demás normativa colombiana pertinente, sin asumir que una medida técnica por sí sola garantiza el cumplimiento legal.
 
@@ -193,7 +193,8 @@ Presta atención a:
 - Inscripciones y capacidad de los grupos.
 - Registro de asistencia.
 - Cambios en estados de pago.
-- Inscripción a torneos.
+- Registro de cuentas con correo o documento duplicado.
+- Recuperación de contraseña y vigencia de sus tokens.
 - Actualizaciones concurrentes.
 - Operaciones con varias escrituras.
 - Notificaciones enviadas antes de confirmar una transacción.

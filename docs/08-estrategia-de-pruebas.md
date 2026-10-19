@@ -40,8 +40,21 @@ JUnit 5, Mockito, Spring Boot Test, MockMvc o WebTestClient según el stack MVC/
 - La lista de asistencia debe corresponder a matrículas `ACTIVE` con mes de inicio igual o anterior al mes de la sesión.
 - Guardar de nuevo debe reemplazar marcas previas de forma controlada.
 
+### Cuentas de usuario (Proceso 3)
+- Registro con contraseña débil, sin aceptar la política de datos, con correo repetido y con documento repetido (RNF-11, RNF-13).
+- Dos registros concurrentes con el mismo correo o documento: uno se crea y el otro recibe `409`, nunca `500`.
+- Inicio de sesión con credenciales incorrectas y con cuenta inactiva (RNF-13).
+- Cada deportista queda vinculado a su acudiente; ningún acudiente ve o modifica deportistas ajenos (RNF-12).
+- Recuperación de contraseña (cuando se implemente): token vencido, reutilizado o alterado; misma respuesta para correos existentes e inexistentes.
+- Tiempo promedio de inicio de sesión y registro < 3 s (RNF-07).
+
+### Documentación de la matrícula (Proceso 1, cuando se implemente)
+- No se confirma una matrícula sin la documentación requerida validada.
+- Solo el acudiente dueño y el administrador acceden a los documentos.
+
 ### JWT y permisos
 - Todos los endpoints protegidos rechazan token ausente/inválido/expirado.
+- Un token vigente de una cuenta inactivada se rechaza.
 - Cada rol solo puede invocar las operaciones permitidas.
 - Las listas aplican filtrado de pertenencia en el servidor.
 
