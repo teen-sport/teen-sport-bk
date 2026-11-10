@@ -49,18 +49,31 @@ public final class DateRangePolicy {
     }
 
     /**
-     * Un extremo ausente deja el rango abierto por ese lado y no se limita su duración.
+     * Rango cerrado de un reporte, con ambos extremos ya resueltos (R2).
+     *
+     * @param from primera fecha
+     * @param to   última fecha
+     * @throws BusinessException 422 {@code INVALID_DATE_RANGE} si el rango está invertido o supera
+     *                           {@value #MAX_REPORT_RANGE_DAYS} días
+     */
+    public static void requireReportRange(LocalDate from, LocalDate to) {
+        requireWithin(from, to, MAX_REPORT_RANGE_DAYS, REPORT_TOO_LONG_MESSAGE);
+    }
+
+    /**
+     * Rango de un reporte que admite extremos ausentes (R3). Un extremo ausente deja el rango abierto por
+     * ese lado y no se limita su duración.
      *
      * @param from primera fecha, o {@code null}
      * @param to   última fecha, o {@code null}
      * @throws BusinessException 422 {@code INVALID_DATE_RANGE} si el rango está invertido o, con ambos
      *                           extremos, supera {@value #MAX_REPORT_RANGE_DAYS} días
      */
-    public static void requireReportRange(LocalDate from, LocalDate to) {
+    public static void requireOpenReportRange(LocalDate from, LocalDate to) {
         if (from == null || to == null) {
             return;
         }
-        requireWithin(from, to, MAX_REPORT_RANGE_DAYS, REPORT_TOO_LONG_MESSAGE);
+        requireReportRange(from, to);
     }
 
     private static void requireWithin(LocalDate from, LocalDate to, int maxDays, String tooLongMessage) {

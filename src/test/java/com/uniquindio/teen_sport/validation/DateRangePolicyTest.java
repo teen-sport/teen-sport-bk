@@ -39,12 +39,9 @@ class DateRangePolicyTest {
     }
 
     @Test
-    void reportRangesAllowAFullYearAndOpenEnds() {
+    void reportRangesAllowAFullYear() {
         LocalDate lastDay = OCTOBER_FIRST.plusDays(DateRangePolicy.MAX_REPORT_RANGE_DAYS - 1L);
         assertThatCode(() -> DateRangePolicy.requireReportRange(OCTOBER_FIRST, lastDay)).doesNotThrowAnyException();
-        assertThatCode(() -> DateRangePolicy.requireReportRange(null, null)).doesNotThrowAnyException();
-        assertThatCode(() -> DateRangePolicy.requireReportRange(OCTOBER_FIRST, null)).doesNotThrowAnyException();
-        assertThatCode(() -> DateRangePolicy.requireReportRange(null, OCTOBER_FIRST)).doesNotThrowAnyException();
 
         BusinessException tooLong = catchThrowableOfType(BusinessException.class,
                 () -> DateRangePolicy.requireReportRange(OCTOBER_FIRST, lastDay.plusDays(1)));
@@ -52,6 +49,24 @@ class DateRangePolicyTest {
                 () -> DateRangePolicy.requireReportRange(OCTOBER_FIRST, OCTOBER_FIRST.minusDays(1)));
 
         assertThat(tooLong.getCode()).isEqualTo(ErrorCode.INVALID_DATE_RANGE);
+        assertThat(tooLong.getMessage()).isEqualTo(DateRangePolicy.REPORT_TOO_LONG_MESSAGE);
+        assertThat(reversed.getMessage()).isEqualTo(DateRangePolicy.REVERSED_MESSAGE);
+    }
+
+    @Test
+    void openReportRangesAllowMissingEndsAndValidateFullRanges() {
+        LocalDate lastDay = OCTOBER_FIRST.plusDays(DateRangePolicy.MAX_REPORT_RANGE_DAYS - 1L);
+        assertThatCode(() -> DateRangePolicy.requireOpenReportRange(OCTOBER_FIRST, lastDay))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> DateRangePolicy.requireOpenReportRange(null, null)).doesNotThrowAnyException();
+        assertThatCode(() -> DateRangePolicy.requireOpenReportRange(OCTOBER_FIRST, null)).doesNotThrowAnyException();
+        assertThatCode(() -> DateRangePolicy.requireOpenReportRange(null, OCTOBER_FIRST)).doesNotThrowAnyException();
+
+        BusinessException tooLong = catchThrowableOfType(BusinessException.class,
+                () -> DateRangePolicy.requireOpenReportRange(OCTOBER_FIRST, lastDay.plusDays(1)));
+        BusinessException reversed = catchThrowableOfType(BusinessException.class,
+                () -> DateRangePolicy.requireOpenReportRange(OCTOBER_FIRST, OCTOBER_FIRST.minusDays(1)));
+
         assertThat(tooLong.getMessage()).isEqualTo(DateRangePolicy.REPORT_TOO_LONG_MESSAGE);
         assertThat(reversed.getMessage()).isEqualTo(DateRangePolicy.REVERSED_MESSAGE);
     }

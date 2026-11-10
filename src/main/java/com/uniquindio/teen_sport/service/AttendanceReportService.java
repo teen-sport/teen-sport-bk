@@ -133,7 +133,7 @@ public class AttendanceReportService {
     @Transactional(readOnly = true)
     public AthleteAttendanceReport athleteReport(AuthenticatedUser user, Integer athleteId, LocalDate dateFrom,
                                                  LocalDate dateTo) {
-        DateRangePolicy.requireReportRange(dateFrom, dateTo);
+        DateRangePolicy.requireOpenReportRange(dateFrom, dateTo);
         Athlete athlete = athleteRepository.findById(athleteId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND,
                         ATHLETE_NOT_FOUND_MESSAGE));
