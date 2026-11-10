@@ -133,8 +133,8 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 | Orden | Etapa | IDs | Requiere contrato nuevo | Estado |
 |---|---|---|---|---|
 | 1 | Cierre de HU39 | A1–A9 | No | Hecho (2026-11-09) |
-| 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Implementada (pendiente de revisión) |
-| 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Pendiente |
+| 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Hecho (PR #40) |
+| 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Implementada (pendiente de revisión) |
 | 4 | Indicadores del Proceso 3 | Nuevo (R5 propuesto) | Sí | Pendiente |
 | 5 | Ampliación de la lista de asistencia | A7 | Sí (cambio de respuesta) | Pendiente |
 | 6 | Correo y notificaciones | MER `notifications` | Sí | Pendiente (al final) |
@@ -149,7 +149,7 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 - Traducir esa violación al `409` de duplicado correspondiente (correo o documento) sin exponer detalles internos, en U2 y en la creación y edición de usuarios (U8, U9).
 - Pruebas de integración con solicitudes concurrentes.
 
-**Estado (2026-11-09): implementada en `feature/attendance-closure-and-duplicate-accounts`, pendiente de revisión y PR.**
+**Estado (2026-11-10): integrada en `development` (PR #40).**
 - `AccountCreator` escribe la cuenta (U2, U8 y el administrador inicial) o el cambio de correo (U9, nuevo método `changeEmail`) y la envía a la base dentro del caso de uso. Si la base la rechaza, `AccountConflictLookup` consulta en una transacción nueva (`REQUIRES_NEW`, solo lectura) qué dato ya está registrado y se responde `409 EMAIL_ALREADY_REGISTERED` o `409 ID_NUMBER_ALREADY_REGISTERED`, conservando la causa original. Si no es el correo ni el documento, el error se relanza sin cambios.
 - La consulta en una transacción nueva es necesaria porque PostgreSQL aborta la transacción que recibió el error; así la traducción tampoco depende de los nombres de las restricciones de la base desplegada, que se crea fuera de la aplicación.
 - `BusinessException` admite una causa, para no perder el error original.
@@ -166,6 +166,22 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 - `ReportController` y `ReportService` (SAD 2.4.2), con consultas agregadas que eviten N+1; SQL nativo solo si se justifica (ADR-06).
 - Alcance por rol: el entrenador solo sus grupos y el acudiente solo sus deportistas.
 - Puede dividirse en dos HU: R1 (Proceso 1) y R2–R4 (Proceso 2).
+
+**Estado (2026-11-10): implementada en `feature/enrollment-and-attendance-reports`, pendiente de revisión y PR.**
+
+Reglas decididas el 2026-11-10:
+- R1: las matrículas del periodo son las que tienen ese mes de inicio (`period_month`). `completionRate` = `ACTIVE` / total y `abandonmentRate` = `CANCELLED` / total. `averageConfirmationHours` promedia `confirmedAt - createdAt` de las `ACTIVE` del periodo (`null` si no hay). `payments` cuenta el estado de pago actual de las matrículas `ACTIVE` vigentes en el periodo (iniciadas ese mes o antes), porque el estado de pago no guarda historia.
+- Fechas: R2 sin fechas abarca del primer día del mes de `dateTo` (hoy por defecto) hasta `dateTo`, y solo cuenta sesiones con fecha hasta hoy. R3 sin fechas abarca todo el historial. Con ambos extremos el rango máximo es de 366 días; un rango invertido o más largo responde `422 INVALID_DATE_RANGE` (`DateRangePolicy.requireReportRange`).
+- Alcance: el entrenador solo ve sus grupos actuales (como en A9); un filtro de grupo o disciplina ajeno devuelve datos vacíos, no `403`. En R3 el entrenador solo puede consultar a un deportista con matrícula vigente en uno de sus grupos y solo ve las marcas de esos grupos; el acudiente, solo a sus deportistas. R4 solo incluye deportistas con matrícula vigente en el grupo.
+- Porcentajes con un decimal (redondeo hacia arriba en la mitad). Sin base, las tasas obligatorias valen 0 y las opcionales (`attendanceRate`) son `null`.
+- R4 cuenta, por deportista y grupo, las marcas `ABSENT` seguidas desde la más reciente; `lastAttendance` es la fecha de la última `PRESENT`. Se calcula en memoria sobre una proyección ordenada, sin SQL nativo (ADR-06). Orden: racha descendente y luego apellidos y nombres en español (sin distinguir tildes ni mayúsculas).
+
+Implementación:
+- `ReportController` (`/reports`), `EnrollmentReportService` (R1), `AttendanceReportService` (R2, R3) y `RecurrentAbsenceService` (R4), todos de solo lectura; consultas JPQL agregadas con proyecciones, sin N+1. Se separaron en tres servicios en lugar de un único `ReportService` para mantener una responsabilidad por clase.
+- `SecurityConfig`: `/reports/enrollments` solo `ADMIN`; `/reports/attendance/athletes/*` los tres roles; el resto de `/reports/**`, `ADMIN` y `COACH`.
+- Las fechas opcionales de las consultas usan `cast(:fecha as LocalDate) is null`, porque PostgreSQL no puede inferir el tipo de un parámetro nulo.
+- Pruebas: `EnrollmentReportServiceTest`, `AttendanceReportServiceTest`, `RecurrentAbsenceServiceTest`, `PercentagesTest`, `DateRangePolicyTest` y `ReportIntegrationTest` (cálculos contra PostgreSQL, roles permitidos y denegados, alcance del entrenador, propiedad del acudiente, `404`, `422` y `400`).
+- `./gradlew check`: 405 pruebas en verde (404 en la corrida completa más la de desempates de R4, ejecutada aparte); cobertura de líneas 99,7 % y de ramas 96,0 %.
 
 ### Etapa 4 — Indicadores del Proceso 3
 - KPI de la Definición P3: cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas.

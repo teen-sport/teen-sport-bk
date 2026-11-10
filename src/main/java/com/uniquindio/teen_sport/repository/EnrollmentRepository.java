@@ -145,4 +145,68 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      */
     @EntityGraph(attributePaths = "athlete")
     List<Enrollment> findByStatusAndAthleteId(EnrollmentStatus status, Integer athleteId);
+
+    /**
+     * R1: matrículas del periodo por estado.
+     *
+     * @param period mes de inicio, {@code YYYY-MM}
+     * @return un conteo por cada estado presente
+     */
+    @Query("select e.status as status, count(e) as total from Enrollment e where e.periodMonth = :period group by e.status")
+    List<EnrollmentStatusCount> countByStatusForPeriod(@Param("period") String period);
+
+    /**
+     * R1: matrículas del periodo por disciplina.
+     *
+     * @param period mes de inicio, {@code YYYY-MM}
+     * @return un conteo por disciplina con solicitudes, ordenado por nombre
+     */
+    @Query("""
+            select d.id as disciplineId, d.name as name, count(e) as requests,
+                   sum(case when e.status = com.uniquindio.teen_sport.entity.EnrollmentStatus.ACTIVE then 1 else 0 end) as active
+            from Enrollment e join e.group g join g.discipline d
+            where e.periodMonth = :period
+            group by d.id, d.name
+            order by d.name, d.id
+            """)
+    List<DisciplineEnrollmentCount> countByDisciplineForPeriod(@Param("period") String period);
+
+    /**
+     * R1: solicitud y confirmación de las matrículas {@code ACTIVE} del periodo.
+     *
+     * @param period mes de inicio, {@code YYYY-MM}
+     * @return los dos momentos de cada matrícula activa que los tiene
+     */
+    @Query("""
+            select e.createdAt as createdAt, e.confirmedAt as confirmedAt from Enrollment e
+            where e.periodMonth = :period
+              and e.status = com.uniquindio.teen_sport.entity.EnrollmentStatus.ACTIVE
+              and e.createdAt is not null and e.confirmedAt is not null
+            """)
+    List<ConfirmationTime> findConfirmationTimes(@Param("period") String period);
+
+    /**
+     * R1: estado de pago actual de las matrículas {@code ACTIVE} vigentes en el periodo, es decir,
+     * iniciadas ese mes o antes.
+     *
+     * @param period mes, {@code YYYY-MM}
+     * @return un conteo por cada estado de pago presente
+     */
+    @Query("""
+            select e.paymentStatus as status, count(e) as total from Enrollment e
+            where e.status = com.uniquindio.teen_sport.entity.EnrollmentStatus.ACTIVE and e.periodMonth <= :period
+            group by e.paymentStatus
+            """)
+    List<PaymentStatusCount> countActivePaymentStatusInForce(@Param("period") String period);
+
+    /**
+     * R3: si el deportista tiene una matrícula en esos estados en un grupo del entrenador.
+     *
+     * @param athleteId id del deportista
+     * @param coachId   id del entrenador
+     * @param statuses  estados
+     * @return {@code true} si existe
+     */
+    boolean existsByAthleteIdAndGroupCoachIdAndStatusIn(Integer athleteId, Integer coachId,
+                                                         Collection<EnrollmentStatus> statuses);
 }

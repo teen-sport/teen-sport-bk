@@ -61,7 +61,7 @@
 - No implementar pasarela de pagos en línea.
 
 ### Indicadores del Proceso 1
-- `R1` (Entrega 3, etapa 3): informe de matrículas. Cubre los KPI de la Definición P1: número de inscripciones por periodo, tiempo promedio del proceso de inscripción (`averageConfirmationHours`) y porcentaje de matrículas completas frente a abandonadas (`completionRate`, `abandonmentRate`). **Contratado, pendiente de implementar.**
+- `R1` (Entrega 3, etapa 3): informe de matrículas. Cubre los KPI de la Definición P1: número de inscripciones por periodo, tiempo promedio del proceso de inscripción (`averageConfirmationHours`) y porcentaje de matrículas completas frente a abandonadas (`completionRate`, `abandonmentRate`). **Implementado (2026-11-10), pendiente de revisión.** Las matrículas del periodo son las de ese mes de inicio; los pagos, los de las matrículas activas vigentes en el periodo.
 
 ## Proceso 2 — Gestión de Entrenamientos y Asistencia
 
@@ -73,7 +73,7 @@
 - Notificación de horarios y novedades a los acudientes por correo: al final de la Entrega 3.
 
 ### Indicadores del Proceso 2
-Entrega 3, etapa 3.
+Entrega 3, etapa 3. **Implementados (2026-11-10), pendientes de revisión.** Reglas de fechas y alcance en `docs/10-plan-implementacion.md`, etapa 3.
 - `R2`: informe de asistencia por alcance autorizado.
 - `R3`: informe de asistencia de un deportista, con verificación de propiedad.
 - `R4`: consulta de ausencias consecutivas, con umbral configurable y filtrado de grupos según rol.
