@@ -619,5 +619,5 @@ Descartadas por ahora (2026-11-09): la documentación de la matrícula (fuera de
 
 Mejoras futuras (2026-11-09), sin contrato en la entrega actual: código de error para un token vigente de una cuenta inactivada, e inactivación y reactivación de un deportista (con su efecto en E1–E4 y en las matrículas).
 
-`R1`–`R4` ya están contratados y pendientes de implementación (Entrega 3, etapa 3).
+`R1`–`R4` implementados (Entrega 3, etapa 3), sin cambios de contrato. Reglas no explícitas en `openapi.yaml`: R1 toma las matrículas por mes de inicio; R2 sin fechas cubre el mes de `dateTo` (hoy por defecto); R3 sin fechas cubre todo el historial; con ambas fechas el rango máximo es de 366 días (`422 INVALID_DATE_RANGE`); un filtro de grupo o disciplina ajeno al entrenador devuelve datos vacíos; en R3 el entrenador recibe `403` si el deportista no tiene matrícula vigente en uno de sus grupos.
 - El contrato declara algunas reglas detalladas en descripciones. Mantenerlas también en pruebas de servicio, no solo en documentación.
