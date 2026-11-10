@@ -35,6 +35,7 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - No enviar a Brevo más información que la necesaria para el correo.
 - No usar datos reales de menores en pruebas compartidas o ejemplos.
 - La revisión técnica no reemplaza la validación legal de cumplimiento de la Ley 1581 de 2012.
+- Decisiones del 2026-11-09: la autorización del acudiente en U2 cubre a todos sus deportistas; la supresión se atenderá inactivando el perfil, como mejora futura; el entrenador ve la edad y el contacto del acudiente solo de los deportistas de sus grupos; la auditoría de consultas a datos de menores queda como posible implementación futura.
 
 ## Errores y respuestas
 - `400`: formato o validación de campos.
@@ -72,10 +73,10 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - Grupos y franjas (HU33): `GET /groups/**` para `ADMIN` y `COACH`; escritura en `/groups/**` y `/schedules/**` solo `ADMIN` (filtro y `@PreAuthorize`). La propiedad de los grupos se comprueba en `service/GroupAccessPolicy` con el `coachId` del token.
 
 ## Pendientes de seguridad (Proceso 3, documentos oficiales v02)
-- **Recuperación de contraseña** (ADR-07: "mecanismo seguro de recuperación de contraseña"): token aleatorio de un solo uso, guardado solo como hash, con vencimiento corto; la solicitud responde igual exista o no el correo; el restablecimiento aplica `PasswordPolicy`; los endpoints son públicos y deben añadirse explícitamente en `SecurityConfig`. La entrega del enlace depende del adaptador de correo (fuera de la entrega actual).
-- **Cuentas inactivas con token vigente**: hoy el JWT no se contrasta con `users.status`, de modo que una cuenta inactivada (U10) puede operar hasta que su token venza. El Plan de Calidad exige rechazar los accesos de cuentas inactivas; se debe verificar el estado del usuario al autenticar cada solicitud y responder `403 USER_INACTIVE` (o el código que fije el contrato).
+- **Recuperación de contraseña** (ADR-07: "mecanismo seguro de recuperación de contraseña"): token aleatorio de un solo uso, guardado solo como hash, con vencimiento corto; la solicitud responde igual exista o no el correo; el restablecimiento aplica `PasswordPolicy`; los endpoints son públicos y deben añadirse explícitamente en `SecurityConfig`. Se construye después de la integración de correo (decisión del 2026-11-09).
+- **Cuentas inactivas con token vigente** (posible mejora futura (decisión del 2026-11-09); no es prioridad): hoy el JWT no se contrasta con `users.status`, de modo que una cuenta inactivada (U10) puede operar hasta que su token venza. El Plan de Calidad exige rechazar los accesos de cuentas inactivas; se debe verificar el estado del usuario al autenticar cada solicitud y responder `403 USER_INACTIVE` (o el código que fije el contrato).
 - **Duplicados concurrentes**: dos registros simultáneos con el mismo correo o documento responden `500` porque la violación de la restricción única no se traduce. Debe responder `409` con el código de duplicado correspondiente (RNF-11, RNF-13).
-- **Cierre de sesión**: se resuelve en el cliente descartando el token; con la verificación de cuentas inactivas no se requiere lista de revocación.
+- **Cierre de sesión**: se resuelve en el cliente descartando el token; cuando se implemente la verificación de cuentas inactivas no se requerirá lista de revocación.
 
 ## CORS y secretos
 Configurar orígenes permitidos de forma explícita en la configuración general; no usar comodines con credenciales. Guardar claves JWT, credenciales de base de datos y claves de Brevo en variables de entorno, nunca en el repositorio.

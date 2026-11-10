@@ -1,6 +1,6 @@
 # 09. Matriz de trazabilidad
 
-Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v02), las familias de endpoints del OpenAPI, los componentes y las pruebas. Los RNF corresponden al Plan de Gestión de la Calidad v02 (ver `03-requisitos-no-funcionales.md`).
+Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v03, 9/11/2026), las familias de endpoints del OpenAPI, los componentes y las pruebas. Los RNF corresponden al Plan de Gestión de la Calidad v02 (ver `03-requisitos-no-funcionales.md`).
 
 ## Matriz por proceso
 
@@ -10,17 +10,18 @@ Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v02)
 | P3 | U6–U12 | Administración de usuarios | UserAdminController, UserDirectoryController, UserAdministrationService, UserDirectoryService, UserRepository | Roles, duplicados, activación e inactivación, paginación y búsqueda | RNF-11, RNF-13, RNF-15 |
 | P3 | E1–E4 | Perfiles de deportistas | AthleteController/AthleteService, AthleteAccessPolicy, AthleteRepository | Edad, vinculación al acudiente, duplicados, acceso a recursos ajenos | RNF-02, RNF-12, RNF-15 |
 | P3 | Pendiente | Recuperación de contraseña | AuthController/AuthService, NotificationService | Token vencido, reutilizado o alterado; respuesta sin revelar cuentas | RNF-13, RNF-14 |
+| P3 | Mejora futura | Inactivación de deportistas | AthleteController/AthleteService | Solo `ADMIN` o el acudiente dueño, conservación del historial, efecto en matrículas | RNF-12, RNF-15 |
 | P3 | Pendiente | Indicadores de usuarios | ReportController/ReportService | Conteos por rol y periodo, acudientes con deportistas, cuentas inactivas | RNF-15 |
 | P1 | H1–H5 | Disciplinas | DisciplineController/Service/Repository | Mensualidad positiva, duplicados, desactivación con grupos activos | RNF-13, RNF-15 |
 | P1 | H6–H14 | Grupos y horarios | GroupController/Service, ScheduleController/Service, ScheduleRepository | Capacidad 1–15, entrenador activo, horarios y permisos | RNF-01, RNF-15 |
 | P1 | E5–E15 | Disponibilidad y matrículas | EnrollmentService, EnrollmentLifecycleService, SpotCounter, GroupRepository, EnrollmentRepository | Cupos concurrentes, transiciones de estado, reasignación de grupo, liberación de cupo | RNF-01, RNF-02, RNF-03, RNF-04, RNF-15 |
-| P1 | E9–E11 (reservados) | Documentación de la matrícula | Pendiente | Confirmación bloqueada sin documentos validados, acceso solo del dueño y del administrador | RNF-01, RNF-03, RNF-15 |
+| P1 | E9–E11 (reservados) | Documentación de la matrícula | Fuera del alcance actual (decisión del 2026-11-09) | — | — |
 | P1 | E16–E19 | Pagos presenciales | PaymentService, PaymentRecorder, PaymentQueryService, PaymentHistoryRepository | Reporte no cambia estado, importe mínimo, duplicado, roles y pertenencia | RNF-01, RNF-03, RNF-15 |
 | P1 | R1 | Indicadores de matrícula | ReportController/ReportService | Conteos por estado, tasas de completitud y abandono, tiempo promedio de confirmación | RNF-15 |
 | P2 | A1–A6 | Sesiones | SessionController, SessionService, SessionQueryService, SessionSlotPolicy, TrainingSessionRepository | Fechas, cancelación, permisos de entrenador, transiciones de estado | RNF-06, RNF-15 |
 | P2 | A7–A9 | Asistencia | AttendanceController, AttendanceService, AttendanceQueryService, AttendanceRecordRepository | Lista elegible, upsert, sesión futura/cancelada, filtros por propiedad | RNF-05, RNF-06, RNF-10, RNF-15 |
 | P2 | R2–R4 | Indicadores de asistencia | ReportController/ReportService | Agregaciones, rangos de fecha, aislamiento de datos por rol | RNF-06, RNF-15 |
-| Transversal | MER `notifications` | Notificaciones | NotificationService, adaptador Brevo (fuera de la entrega actual) | Fallos de envío, reintentos, registro de estado y privacidad; confirmar contrato | RNF-14 |
+| Transversal | MER `notifications` | Notificaciones | NotificationService, adaptador Brevo (al final de la Entrega 3) | Fallos de envío, reintentos, registro de estado y privacidad; confirmar contrato | RNF-14 |
 | Transversal | — | Documentación de código | Todo el backend | Medición de cobertura Javadoc | RNF-17 |
 
 Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la matriz.
@@ -63,7 +64,7 @@ Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la 
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU39 Registro y consulta de asistencia | A1–A9; cierra las sesiones futuras de H10 y H11 | Implementada (pendiente de revisión); correos `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` pendientes de la integración de correo | `SessionServiceTest`, `SessionQueryServiceTest`, `AttendanceServiceTest`, `AttendanceQueryServiceTest`, `DateRangePolicyTest`, `GroupServiceTest`, `SessionAttendanceIntegrationTest` (incluye concurrencia) | RNF-05, RNF-10, RNF-13, RNF-15 |
+| HU39 Registro y consulta de asistencia | A1–A9; cierra las sesiones futuras de H10 y H11 | Integrada en `development` (PR #23); `./gradlew check` completo pendiente de registrar; correos `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` pendientes de la integración de correo | `SessionServiceTest`, `SessionQueryServiceTest`, `AttendanceServiceTest`, `AttendanceQueryServiceTest`, `DateRangePolicyTest`, `GroupServiceTest`, `SessionAttendanceIntegrationTest` (incluye concurrencia) | RNF-05, RNF-10, RNF-13, RNF-15 |
 
 La columna RNF se reasignó el 2026-10-19 según el Plan de Calidad v02: hasta entonces RNF-11 significaba "integridad de datos entre procesos" y se usaba en HU33, HU35, HU36, HU37 y HU39; ahora es "unicidad de cuentas de usuario". La asignación indica qué RNF verifica cada HU, no que su métrica esté cumplida.
 

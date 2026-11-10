@@ -70,12 +70,12 @@ Decisiones (2026-10-13):
 - Cupos: una matrícula vigente ocupa cupo desde su mes de inicio en adelante, así que E6, H9 (y E12/E15 en HU37) validan contra todas las matrículas vigentes del grupo. En E5, `occupiedSpots` cuenta las que empezaron en el periodo o antes y `availableSpots` es la capacidad menos todas las vigentes (mínimo 0).
 - Filtro `period` de E7: matrículas vigentes en ese mes (inicio igual o anterior y, sin filtro de estado, `PENDING_REVIEW` o `ACTIVE`).
 - El motivo opcional de E14 se guarda en `review_notes` (HU37).
-- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 8. Pago dentro de E12: cerrado en HU36 (Fase 5).
+- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Entrega 3, etapa 6. Pago dentro de E12: cerrado en HU36 (Fase 5).
 
 **Estado (2026-10-14): HU35 (PR #20) y HU37 (PR #21) integradas en `development`.**
 - HU35: entidad `enrollments` (sin las columnas de soportes documentales); E5 `GET /availability`, E6 `POST /enrollments`, E7 `GET /enrollments`, E8 `GET /enrollments/{id}`; cupos en `SpotCounter` (una consulta agrupada para E5); E6 bloquea el deportista y luego el grupo antes de comprobar duplicado y cupo; H9 `CAPACITY_BELOW_OCCUPIED` y H10 `GROUP_HAS_ACTIVITY` (matrículas) con bloqueo del grupo; `hasActiveEnrollment` real en E1–E4 (en lote en E2). Los mappers de grupos y matrículas pasan a ser funciones estáticas. `./gradlew check`: 287 pruebas en verde.
 - HU37: E12 `confirm`, E13 `reject`, E14 `cancel`, E15 `group` en `EnrollmentLifecycleService`; cada operación bloquea la matrícula y, al cambiar de grupo, el grupo de destino antes de contar cupos; reglas de grupo compartidas con E6 en `GroupEnrollmentPolicy`; reglas por URL para que solo `ADMIN` revise o mueva matrículas. `./gradlew check`: 310 pruebas en verde.
-- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 8).
+- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Entrega 3, etapa 6).
 
 ## Fase 5 — Pagos presenciales
 - Reporte por acudiente.
@@ -108,30 +108,88 @@ Decisiones (2026-10-14):
 - En H10 y H11, "futuras" son las sesiones `SCHEDULED` con fecha de hoy en adelante.
 - Las marcas de deportistas que salen de la lista se conservan en el historial (A9) y no aparecen en A7.
 
-**Estado (2026-10-14): HU39 implementada, pendiente de revisión.**
-- HU39 en `feature/HU39/attendance-management`: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`. `./gradlew check` completo: pendiente de ejecutar.
-- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Fase 8.
+**Estado (2026-11-09): HU39 integrada en `development` (PR #23); falta registrar el `./gradlew check` completo (Entrega 3, etapa 1).**
+- HU39: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`.
+- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Entrega 3, etapa 6.
 
-## Fase 7 — Alineación con los documentos oficiales v02 (Procesos 1 y 3)
-Origen: la Definición del Proyecto y el Plan de Calidad v02 (19/10/2026) reemplazaron el proceso de torneos por el de registro, autenticación y gestión de usuarios, y el proyecto debe adaptarse a ellos.
+## Fase 7 — Alineación con los documentos oficiales (v02 y v03)
+Origen: la Definición del Proyecto y el Plan de Calidad v02 (19/10/2026) reemplazaron el proceso de torneos por el de registro, autenticación y gestión de usuarios. La Definición y el SAD v03 (9/11/2026) añadieron la nota de alcance: el correo y las notificaciones (Brevo), la recuperación de contraseña, la creación de administradores desde la interfaz y la generación de reportes se planificaron para la tercera entrega. Los RNF del Plan de Calidad no cambiaron.
 
-**Estado (2026-10-19): documentación interna alineada; implementación pendiente.**
-- Hecho: actualización de `CLAUDE.md`, `docs/01`–`docs/10`, ADR-010 interno y skills de `.claude/` (alcance por procesos, exclusión de torneos, RNF v02, despliegue en GitHub Actions y Railway, cambios pendientes del MER y del contrato).
-- 7.1 Seguridad de cuentas (P3): rechazar tokens de cuentas inactivas y traducir los duplicados concurrentes de registro a `409`.
-- 7.2 Recuperación de contraseña (P3): contrato, tabla de tokens, endpoints públicos y puerto de notificaciones; la entrega por correo llega con la Fase 8.
-- 7.3 Documentación de la matrícula (P1): contrato (IDs `E9–E11` reservados), mapeo de las columnas del MER, almacenamiento de archivos y validación antes de E12.
-- 7.4 Renovación por periodo (P1): según la decisión que se tome.
-- 7.5 Indicadores: R1 (P1) y reporte de usuarios del P3, con `ReportController`/`ReportService`; consulta consolidada del estado de pago por deportista.
+**Estado (2026-11-09): documentación interna alineada con la Definición v03, el SAD v03 y el Plan de Calidad v02.**
+- Hecho (2026-10-19): actualización de `CLAUDE.md`, `docs/01`–`docs/10`, ADR-010 interno y skills de `.claude/` (alcance por procesos, exclusión de torneos, RNF v02, despliegue en GitHub Actions y Railway).
+- Hecho (2026-11-09): versiones v03 en las fuentes de verdad, decisiones de alcance y reorganización del trabajo restante en la Entrega 3.
 
-Decisiones pendientes: almacenamiento de documentos y casos en que aplica el certificado médico; modelo de renovación; si la recuperación de contraseña se construye antes de la integración de correo.
+Decisiones del 2026-11-09:
+- La documentación de la matrícula queda fuera del alcance; `E9–E11` siguen reservados.
+- Se mantiene la matrícula continua mes a mes; no hay renovación explícita.
+- La autorización del acudiente en U2 cubre a todos sus deportistas, también los que registre el administrador.
+- El entrenador ve en A7 la edad del deportista y el contacto del acudiente.
+- El correo, las notificaciones y la recuperación de contraseña se hacen al final de la Entrega 3; el catálogo de notificaciones se define en ese momento.
+- La creación de administradores ya existe en la API (U8); la nota de alcance se refiere a la interfaz.
 
-## Fase 8 — Correo y notificaciones (fuera de la entrega actual)
-- Definir catálogo de eventos (registro de cuenta, recuperación de contraseña, inscripción, confirmación y rechazo, falta de cupos, horarios y novedades) y el ciclo de vida en `notifications`.
-- Componente `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit.
-- Observabilidad, reintentos y pruebas de fallos del proveedor; medición de RNF-14.
+## Entrega 3 — Trabajo restante para cerrar el proyecto
+Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo indispensable y deja el correo y la recuperación de contraseña para el final. Cada etapa se desarrolla en su propia rama (una HU por rama) y cierra con `./gradlew check`, documentación y trazabilidad actualizadas.
 
-## Fase 9 — Calidad y despliegue
-- Ejecutar suite completa, revisar cobertura (JaCoCo) y Javadoc (RNF-17).
-- Medir RNF de rendimiento (RNF-04, RNF-06, RNF-07) y seguridad (RNF-13, RNF-15, RNF-16) con evidencia reproducible.
+| Orden | Etapa | IDs | Requiere contrato nuevo | Estado |
+|---|---|---|---|---|
+| 1 | Cierre de HU39 | A1–A9 | No | Pendiente |
+| 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Pendiente |
+| 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Pendiente |
+| 4 | Indicadores del Proceso 3 | Nuevo (R5 propuesto) | Sí | Pendiente |
+| 5 | Ampliación de la lista de asistencia | A7 | Sí (cambio de respuesta) | Pendiente |
+| 6 | Correo y notificaciones | MER `notifications` | Sí | Pendiente (al final) |
+| 7 | Recuperación de contraseña | Nuevos, bajo `/auth` | Sí, más tabla en el MER | Pendiente (al final) |
+| 8 | Calidad y despliegue | Transversal | No | Pendiente (cierre) |
+
+### Etapa 1 — Cierre de HU39
+- HU39 está integrada en `development` (PR #23), pero su `./gradlew check` completo no quedó registrado.
+- Ejecutar la suite completa, corregir lo que falle y actualizar el estado en `docs/09` y en la Fase 6.
+
+### Etapa 2 — Duplicados concurrentes de cuentas (RNF-11, RNF-13)
+- Hoy dos registros simultáneos con el mismo correo o documento responden `500`, porque la violación de la restricción única de PostgreSQL no se traduce.
+- Traducir esa violación al `409` de duplicado correspondiente (correo o documento) sin exponer detalles internos, en U2 y en la creación y edición de usuarios (U8, U9).
+- Pruebas de integración con solicitudes concurrentes.
+
+### Etapa 3 — Reportes R1–R4 (KPI de los Procesos 1 y 2)
+- Contrato ya definido en `openapi.yaml`; cubre los KPI de la Definición:
+  - R1 (solo `ADMIN`): inscripciones por periodo y estado, tasas de completitud y abandono, tiempo promedio de confirmación, desglose por disciplina y pagos.
+  - R2 (`ADMIN`, `COACH`): sesiones programadas frente a realizadas, cobertura de registro (RNF-10), asistencia por grupo y disciplina.
+  - R3 (`ADMIN`, `COACH`, `GUARDIAN`): asistencia de un deportista, con verificación de propiedad.
+  - R4 (`ADMIN`, `COACH`): ausencias consecutivas con umbral configurable.
+- `ReportController` y `ReportService` (SAD 2.4.2), con consultas agregadas que eviten N+1; SQL nativo solo si se justifica (ADR-06).
+- Alcance por rol: el entrenador solo sus grupos y el acudiente solo sus deportistas.
+- Puede dividirse en dos HU: R1 (Proceso 1) y R2–R4 (Proceso 2).
+
+### Etapa 4 — Indicadores del Proceso 3
+- KPI de la Definición P3: cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas.
+- Diseñar el endpoint en `openapi.yaml` (propuesto: `R5`, `GET /reports/users`, solo `ADMIN`) y aprobarlo antes de implementarlo.
+
+### Etapa 5 — Ampliación de A7
+- Añadir a la lista de asistencia la edad del deportista y el contacto del acudiente (nombre y teléfono), solo para el entrenador del grupo y el administrador.
+- Cambio de la respuesta de A7 en `openapi.yaml`; requiere aprobación.
+
+### Etapa 6 — Correo y notificaciones (al final)
+- Definir el catálogo de eventos: registro de cuenta, recuperación de contraseña, inscripción, confirmación y rechazo, falta de cupos (`NO_SPOTS_AVAILABLE`), horarios publicados (`SCHEDULE_PUBLISHED`) y novedades (`SCHEDULE_CHANGE`).
+- Definir el ciclo de vida en `notifications` (persistencia antes o después del envío, estado, intentos).
+- `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit, reintentos y registro de fallos sin afirmar envíos no confirmados.
+- Pruebas con el proveedor simulado y medición de RNF-14 (≥ 95 %).
+
+### Etapa 7 — Recuperación de contraseña (al final, después del correo)
+- Contrato de solicitud y restablecimiento (públicos, bajo `/auth`) y tabla de tokens en el MER (usuario, hash del token, vencimiento, fecha de uso y creación).
+- Token aleatorio de un solo uso, guardado solo como hash, con vencimiento corto; la solicitud responde igual exista o no el correo; el restablecimiento aplica `PasswordPolicy`.
+
+### Etapa 8 — Calidad y despliegue (cierre)
+- Ejecutar la suite completa y revisar la cobertura (JaCoCo) y el Javadoc (RNF-17, ≥ 80 %).
+- Medir con evidencia reproducible los RNF de rendimiento (RNF-04, RNF-06, RNF-07) y de seguridad (RNF-13, RNF-15, RNF-16).
 - Validar CORS, secretos y configuración general.
 - Mantener el pipeline de GitHub Actions y el despliegue en Railway (ADR-10).
+
+### Pendiente de confirmar
+- Estado de pago consolidado por deportista: E7 ya filtra por `athleteId` y devuelve el `paymentStatus` de cada matrícula. Se propone darlo por cubierto sin endpoint nuevo.
+
+## Mejoras futuras (fuera de la Entrega 3)
+Decididas el 2026-11-09; se retoman solo si queda tiempo al final del proyecto:
+- Rechazo de tokens vigentes de cuentas inactivadas (RNF-13). Hoy el login ya rechaza las cuentas inactivas (`USER_INACTIVE`), pero un token emitido antes de la inactivación sigue vigente hasta vencer.
+- Inactivación de deportistas para atender la supresión de datos (estado en `athletes` en el MER y cambio de `openapi.yaml`).
+- Versión de la política de datos aceptada.
+- Auditoría de consultas a datos de menores.

@@ -4,7 +4,7 @@
 TeenSport es un sistema web para apoyar la operación de una academia deportiva multidisciplinaria (adolescentes de 12 a 17 años; unos 60 deportistas, 6 entrenadores y grupos de máximo 15). Centraliza usuarios, deportistas, disciplinas, grupos, matrículas, pagos presenciales reportados, sesiones, asistencia e indicadores, reduciendo la dependencia de formularios en papel, planillas físicas y grupos de WhatsApp.
 
 ## Procesos de negocio
-La Definición del Proyecto (versión 02, 19/10/2026) establece tres procesos relacionados de forma transaccional: la salida de uno es la entrada del siguiente.
+La Definición del Proyecto (versión 03, 9/11/2026) establece tres procesos relacionados de forma transaccional: la salida de uno es la entrada del siguiente.
 
 | Proceso | Objetivo | Depende de | Alimenta a |
 |---|---|---|---|
@@ -15,9 +15,9 @@ La Definición del Proyecto (versión 02, 19/10/2026) establece tres procesos re
 El Proceso 3 reemplazó al anterior "Gestión de Eventos y Torneos Internos" (versión 02 de la Definición y del Plan de Calidad). Toda referencia a torneos, eventos, equipos, partidos o resultados queda sin efecto.
 
 ## Actores y roles técnicos
-- `ADMIN`: cubre al coordinador académico deportivo y al auxiliar administrativo. Crea y administra las cuentas de entrenadores y administradores (rol, activación e inactivación), activa o inactiva cuentas de acudientes, gestiona disciplinas, cupos, grupos y horarios, valida la documentación y confirma matrículas, actualiza manualmente el estado de pago y consulta reportes e indicadores de toda la operación.
+- `ADMIN`: cubre al coordinador académico deportivo y al auxiliar administrativo. Crea y administra las cuentas de entrenadores y administradores (rol, activación e inactivación), activa o inactiva cuentas de acudientes, gestiona disciplinas, cupos, grupos y horarios, confirma matrículas, actualiza manualmente el estado de pago y consulta reportes e indicadores de toda la operación.
 - `COACH`: programa y consulta las sesiones de sus grupos, registra la asistencia de los deportistas a su cargo y consulta reportes de asistencia de sus grupos.
-- `GUARDIAN`: se autorregistra, crea y administra los perfiles de sus deportistas, los inscribe y matricula, aporta la documentación requerida, reporta el pago presencial de la mensualidad y consulta el estado de pago y la asistencia.
+- `GUARDIAN`: se autorregistra, crea y administra los perfiles de sus deportistas, los inscribe y matricula, reporta el pago presencial de la mensualidad y consulta el estado de pago y la asistencia.
 
 El deportista no es usuario del sistema ni tiene vista propia: su perfil lo crea y administra su acudiente. Los roles técnicos son únicamente `ADMIN`, `COACH` y `GUARDIAN`; no usar `ADMINISTRADOR`, `ENTRENADOR` o `ACUDIENTE` como valores de enum salvo que exista una decisión de mapeo explícita.
 
@@ -34,15 +34,18 @@ El deportista no es usuario del sistema ni tiene vista propia: su perfil lo crea
 ## Alcance
 Incluye, según la Definición del Proyecto y el SAD:
 - Registro y autenticación de usuarios por rol, incluida la recuperación de contraseña por correo, la activación e inactivación de cuentas y la gestión de los perfiles de los deportistas por su acudiente.
-- Inscripción y matrícula en las disciplinas, con verificación de cupo, validación de documentación (autorización del acudiente y certificado médico si aplica) y asignación de grupo y horario.
+- Inscripción y matrícula en las disciplinas, con verificación de cupo y asignación de grupo y horario. La documentación de la matrícula (autorización del acudiente y certificado médico) queda fuera del alcance actual por decisión del equipo (2026-11-09).
 - Registro y actualización manual del estado de pago (al día / en mora) por el administrador, según el pago presencial.
 - Programación de sesiones y registro de asistencia por el entrenador.
 - Consulta de asistencia, reportes e indicadores por rol.
 - Notificaciones por correo sobre registro de cuenta, recuperación de contraseña, inscripciones, horarios y novedades.
 
-### Estado de la entrega actual
-- Desarrollados: Proceso 1 y Proceso 3. El backend también contiene la implementación de sesiones y asistencia (HU39), pendiente de revisión.
-- Fuera de esta entrega: el envío de correos (adaptador Brevo). Se integrará después; mientras tanto, las funcionalidades que dependan del correo deben dejar definido su punto de notificación sin simular envíos.
+### Estado de la entrega actual (Entrega 3)
+- Desarrollados: Procesos 1, 2 y 3 en sus operaciones principales (HU28–HU39 integradas en `development`).
+- Nota de alcance de los documentos oficiales (Definición v03, SAD v03 y Plan de Calidad): el envío de correos/notificaciones (Brevo), la recuperación de contraseña, la creación de administradores desde la interfaz y la generación de reportes quedan planificados para la tercera entrega; siguen siendo parte del alcance del proyecto.
+- Estamos en la tercera entrega: los reportes (R1–R4 e indicadores del Proceso 3), el adaptador Brevo con las notificaciones y la recuperación de contraseña están en el alcance actual. El correo y la recuperación de contraseña se hacen al final. La creación de administradores ya existe en la API (U8); la nota se refiere a la interfaz.
+- El orden del trabajo restante está en `10-plan-implementacion.md`, sección "Entrega 3".
+- Mientras no exista el correo, las funcionalidades que dependan del correo deben dejar definido su punto de notificación sin simular envíos.
 
 ## Exclusiones documentadas
 - Nómina y contratación del personal.
@@ -53,7 +56,7 @@ Incluye, según la Definición del Proyecto y el SAD:
 El registro de pagos es presencial/manual: el acudiente puede reportar que pagó, pero solo el administrador registra el pago y actualiza el estado de pago conforme al contrato.
 
 ## Fuentes de verdad y precedencia
-1. Documentos oficiales del proyecto: Definición del Proyecto (v02), Plan de Gestión de la Calidad (v02) y Software Architecture Description con sus ADR.
+1. Documentos oficiales del proyecto: Definición del Proyecto (v03, 9/11/2026), Plan de Gestión de la Calidad (v02, 19/10/2026) y Software Architecture Description (v03, 9/11/2026) con sus ADR.
 2. `openapi.yaml` para rutas, métodos, esquemas, códigos HTTP, códigos de error y roles del contrato.
 3. `docs/MER.pdf` / `04-modelo-entidad-relacion.md` para estructura de persistencia.
 4. Código existente para el estado implementado actualmente.
