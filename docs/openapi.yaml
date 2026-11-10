@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     REST API for TeenSport, the web system of a youth multi-sport academy.
-    Covers authentication and users, Process 1 (enrollment) and Process 2 (training and attendance).
+    Covers authentication and users, Process 1 (enrollment), Process 2 (training and attendance) and their reports.
 
     **Language convention.** Everything that is code is in English: paths, query parameters, JSON fields,
     enum values and error codes. Everything the end user sees is in Spanish: the `message` field of every
@@ -1393,7 +1393,8 @@ paths:
       description: |
         **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose start `period`
         is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked. Marks of athletes
-        that left the roster later are kept in the history (A9) but are not listed here.
+        that left the roster later are kept in the history (A9) but are not listed here. Each athlete carries their current `age` and
+        the `guardian` emergency contact (name and phone); A8 returns the same roster.
       x-endpoint-id: A7
       x-roles: [COACH, ADMIN]
       x-error-codes: [NOT_FOUND]
@@ -1586,6 +1587,30 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/RecurrentAbsence' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reports/users:
+    get:
+      tags: [Reports]
+      operationId: getUserReport
+      summary: User account indicators
+      description: |
+        **Roles:** ADMIN. `period` is required. `registeredInPeriod` counts the accounts created in that month (academy time zone),
+        even if they are inactive now. `active`, `inactive`, `inactiveAccounts` and `guardiansWithAthletes` reflect the current state,
+        because account status keeps no history. `guardianLinkRate` = active guardians with at least one athlete / active guardians
+        (percent; 0 when there are no active guardians). `byRole` always lists `ADMIN`, `COACH` and `GUARDIAN`, in that order.
+      x-endpoint-id: R5
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR]
+      parameters:
+        - { $ref: '#/components/parameters/PeriodRequired' }
+      responses:
+        '200':
+          description: Report.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserReport' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -2284,15 +2309,25 @@ components:
     # ------------------------------------------------------------ attendance
     AttendanceRosterEntry:
       type: object
-      required: [athleteId, firstNames, lastNames, status]
+      required: [athleteId, firstNames, lastNames, age, guardian, status]
       properties:
         athleteId: { type: integer, format: int32 }
         firstNames: { type: string }
         lastNames: { type: string }
+        age: { type: integer, description: "Age in years on today's date in the academy time zone (not the session date).", example: 14 }
+        guardian: { $ref: '#/components/schemas/GuardianContact' }
         status:
           allOf:
             - $ref: '#/components/schemas/AttendanceStatus'
           nullable: true
+    GuardianContact:
+      type: object
+      description: Emergency contact of the athlete's guardian. Only in the attendance roster (A7, A8).
+      required: [firstNames, lastNames, phone]
+      properties:
+        firstNames: { type: string }
+        lastNames: { type: string }
+        phone: { type: string, nullable: true, example: '3001234567' }
     AttendanceRoster:
       type: object
       required: [sessionId, group, date, status, attendanceRecorded, records]
@@ -2418,3 +2453,22 @@ components:
         group: { $ref: '#/components/schemas/IdName' }
         consecutiveAbsences: { type: integer, example: 3 }
         lastAttendance: { type: string, format: date, nullable: true }
+    UserReport:
+      type: object
+      required: [period, registeredInPeriod, inactiveAccounts, guardiansWithAthletes, guardianLinkRate, byRole]
+      properties:
+        period: { $ref: '#/components/schemas/Period' }
+        registeredInPeriod: { type: integer, description: 'Accounts created in the period, all roles.', example: 7 }
+        inactiveAccounts: { type: integer, description: 'Accounts inactive now, all roles.', example: 3 }
+        guardiansWithAthletes: { type: integer, description: 'Active guardians with at least one athlete.', example: 38 }
+        guardianLinkRate: { type: number, format: double, description: Percent., example: 95.0 }
+        byRole:
+          type: array
+          items:
+            type: object
+            required: [role, registeredInPeriod, active, inactive]
+            properties:
+              role: { $ref: '#/components/schemas/Role' }
+              registeredInPeriod: { type: integer }
+              active: { type: integer }
+              inactive: { type: integer }

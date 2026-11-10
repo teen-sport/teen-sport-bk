@@ -30,6 +30,9 @@ final class SessionFixtures {
     /** 13 de octubre en UTC, pero todavía 12 de octubre en Bogotá. */
     static final Instant NOW = Instant.parse("2026-10-13T03:00:00Z");
     static final LocalDate TODAY = LocalDate.of(2026, 10, 12);
+    /** Nacimiento de los deportistas de prueba: cumplen 14 años en {@link #TODAY}. */
+    static final LocalDate BIRTH_DATE = LocalDate.of(2012, 10, 12);
+    static final String GUARDIAN_PHONE = "3001234567";
 
     static final AuthenticatedUser ADMIN = new AuthenticatedUser(1, RoleName.ADMIN, null, null);
     static final AuthenticatedUser COACH = new AuthenticatedUser(2, RoleName.COACH, null, 10);
@@ -64,12 +67,16 @@ final class SessionFixtures {
     }
 
     static Athlete athlete(int id, String firstName, String lastName) {
-        Guardian guardian = new Guardian(new User(new Role(RoleName.GUARDIAN, null), "g@teensport.test", "$2a$hash",
-                NOW), null);
+        User account = new User(new Role(RoleName.GUARDIAN, null), "g@teensport.test", "$2a$hash", NOW);
+        account.setFirstName("Laura");
+        account.setLastName("Ríos");
+        account.setPhone(GUARDIAN_PHONE);
+        Guardian guardian = new Guardian(account, null);
         ReflectionTestUtils.setField(guardian, "id", 20);
         Athlete athlete = new Athlete(guardian, NOW);
         athlete.setFirstName(firstName);
         athlete.setLastName(lastName);
+        athlete.setBirthDate(BIRTH_DATE);
         ReflectionTestUtils.setField(athlete, "id", id);
         return athlete;
     }

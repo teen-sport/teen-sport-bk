@@ -134,9 +134,9 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 |---|---|---|---|---|
 | 1 | Cierre de HU39 | A1–A9 | No | Hecho (2026-11-09) |
 | 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Hecho (PR #40) |
-| 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Implementada (pendiente de revisión) |
-| 4 | Indicadores del Proceso 3 | Nuevo (R5 propuesto) | Sí | Pendiente |
-| 5 | Ampliación de la lista de asistencia | A7 | Sí (cambio de respuesta) | Pendiente |
+| 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Hecho (PR #41) |
+| 4 | Indicadores del Proceso 3 | R5 | Sí (aprobado el 2026-11-10) | Implementada (pendiente de revisión) |
+| 5 | Ampliación de la lista de asistencia | A7, A8 | Sí (aprobado el 2026-11-10) | Implementada (pendiente de revisión) |
 | 6 | Correo y notificaciones | MER `notifications` | Sí | Pendiente (al final) |
 | 7 | Recuperación de contraseña | Nuevos, bajo `/auth` | Sí, más tabla en el MER | Pendiente (al final) |
 | 8 | Calidad y despliegue | Transversal | No | Pendiente (cierre) |
@@ -167,7 +167,7 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 - Alcance por rol: el entrenador solo sus grupos y el acudiente solo sus deportistas.
 - Puede dividirse en dos HU: R1 (Proceso 1) y R2–R4 (Proceso 2).
 
-**Estado (2026-11-10): implementada en `feature/enrollment-and-attendance-reports`, pendiente de revisión y PR.**
+**Estado (2026-11-10): integrada en `development` (PR #41).** La corrección de SonarCloud separó `DateRangePolicy.requireReportRange` (rango cerrado, R2) de `requireOpenReportRange` (admite extremos nulos, R3).
 
 Reglas decididas el 2026-11-10:
 - R1: las matrículas del periodo son las que tienen ese mes de inicio (`period_month`). `completionRate` = `ACTIVE` / total y `abandonmentRate` = `CANCELLED` / total. `averageConfirmationHours` promedia `confirmedAt - createdAt` de las `ACTIVE` del periodo (`null` si no hay). `payments` cuenta el estado de pago actual de las matrículas `ACTIVE` vigentes en el periodo (iniciadas ese mes o antes), porque el estado de pago no guarda historia.
@@ -187,9 +187,30 @@ Implementación:
 - KPI de la Definición P3: cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas.
 - Diseñar el endpoint en `openapi.yaml` (propuesto: `R5`, `GET /reports/users`, solo `ADMIN`) y aprobarlo antes de implementarlo.
 
+**Estado (2026-11-10): implementada en `feature/user-indicators-and-attendance-roster`, pendiente de revisión y PR.**
+
+Reglas decididas el 2026-11-10 (contrato aprobado):
+- `period` (`YYYY-MM`) es obligatorio, como en R1. `registeredInPeriod` cuenta las cuentas creadas ese mes en la zona de la academia, aunque hoy estén inactivas.
+- `active`, `inactive`, `inactiveAccounts` y `guardiansWithAthletes` son el estado actual, porque `users.status` no guarda historia (igual que el estado de pago en R1).
+- `guardianLinkRate` = acudientes activos con al menos un deportista / acudientes activos (0 si no hay acudientes activos).
+- `byRole` siempre trae `ADMIN`, `COACH` y `GUARDIAN`, en ese orden, con ceros si no hay cuentas.
+
+Implementación:
+- `UserReportService` (solo lectura) con dos consultas JPQL agregadas en `UserRepository` (`countCreatedByRole`, `countByRoleAndStatus`) y una en `GuardianRepository` (`countActiveWithAthletes`, con `exists`). Endpoint en `ReportController`; `SecurityConfig` agrupa `/reports/enrollments` y `/reports/users` como reportes solo `ADMIN`.
+- Pruebas: `UserReportServiceTest` (cálculos, límites del mes en la zona de la academia, ceros) y `ReportIntegrationTest` (diferencias antes y después contra PostgreSQL, periodo sin cuentas, `403` para `COACH` y `GUARDIAN`, `401` y `400`).
+
 ### Etapa 5 — Ampliación de A7
 - Añadir a la lista de asistencia la edad del deportista y el contacto del acudiente (nombre y teléfono), solo para el entrenador del grupo y el administrador.
 - Cambio de la respuesta de A7 en `openapi.yaml`; requiere aprobación.
+
+**Estado (2026-11-10): implementada en `feature/user-indicators-and-attendance-roster`, pendiente de revisión y PR.**
+- Contrato aprobado el 2026-11-10: `AttendanceRosterEntry` añade `age` y `guardian` (`GuardianContact`: nombres, apellidos y teléfono nulable). A8 devuelve el mismo esquema. El frontend debe adaptarse.
+- La edad se calcula con la fecha actual de la academia (`AthleteAgePolicy.ageOn`), no con la de la sesión, porque es para emergencias.
+- `EnrollmentRepository.findRosterAthletes` carga el acudiente y su cuenta con `join fetch` en la misma consulta, sin N+1. `AttendanceMapper` solo expone nombres, apellidos y teléfono de la cuenta del acudiente.
+- El acceso no cambia: solo `ADMIN` y el entrenador actual del grupo; otro entrenador y el acudiente reciben `403` (probado en `SessionAttendanceIntegrationTest`).
+- Pruebas: `AttendanceServiceTest` (edad a la fecha actual en una sesión de hace un año, contacto del acudiente) y `SessionAttendanceIntegrationTest` (campos nuevos contra PostgreSQL, sin correo del acudiente, accesos denegados).
+
+Cierre de las etapas 4 y 5: `./gradlew check` el 2026-11-10 con PostgreSQL 18.6 en Testcontainers: 413 pruebas, 0 fallos, 0 omitidas; cobertura JaCoCo de líneas 99,7 %, instrucciones 99,6 % y ramas 96,0 %.
 
 ### Etapa 6 — Correo y notificaciones (al final)
 - Definir el catálogo de eventos: registro de cuenta, recuperación de contraseña, inscripción, confirmación y rechazo, falta de cupos (`NO_SPOTS_AVAILABLE`), horarios publicados (`SCHEDULE_PUBLISHED`) y novedades (`SCHEDULE_CHANGE`).

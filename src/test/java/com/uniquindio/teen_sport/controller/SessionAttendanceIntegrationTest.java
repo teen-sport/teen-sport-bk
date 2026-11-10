@@ -202,8 +202,15 @@ class SessionAttendanceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.records.length()").value(2))
                 .andExpect(jsonPath("$.records[0].status").value(nullValue()))
+                .andExpect(jsonPath("$.records[0].age").value(14))
+                .andExpect(jsonPath("$.records[0].guardian.firstNames").value("Ana María"))
+                .andExpect(jsonPath("$.records[0].guardian.lastNames").value("Prueba Test"))
+                .andExpect(jsonPath("$.records[0].guardian.phone").value("3001234567"))
+                .andExpect(jsonPath("$.records[0].guardian.email").doesNotExist())
                 .andExpect(jsonPath("$.attendanceRecorded").value(false));
-        send(get(url), adminToken, null).andExpect(status().isOk());
+        send(get(url), adminToken, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.records[1].guardian.phone").value("3001234567"));
         send(get(url), auth.newCoachToken(), null).andExpect(status().isForbidden());
         send(get(url), guardian.token(), null).andExpect(status().isForbidden());
 

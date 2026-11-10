@@ -80,6 +80,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 | R2 | `GET` | `/reports/attendance` | `getAttendanceReport` | Attendance indicators | ADMIN, COACH | VALIDATION_ERROR, INVALID_DATE_RANGE |
 | R3 | `GET` | `/reports/attendance/athletes/{id}` | `getAthleteAttendanceReport` | Attendance history and rate of one athlete | ADMIN, COACH, GUARDIAN | NOT_FOUND, INVALID_DATE_RANGE |
 | R4 | `GET` | `/reports/attendance/recurrent-absences` | `getRecurrentAbsences` | Athletes with consecutive absences | ADMIN, COACH | VALIDATION_ERROR |
+| R5 | `GET` | `/reports/users` | `getUserReport` | User account indicators | ADMIN | VALIDATION_ERROR |
 | U1 | `POST` | `/auth/login` | `login` | Log in and get a JWT | PUBLIC | VALIDATION_ERROR, INVALID_CREDENTIALS, USER_INACTIVE |
 | U10 | `PATCH` | `/users/{id}/status` | `updateUserStatus` | Activate or deactivate a user | ADMIN | NOT_FOUND, CANNOT_DEACTIVATE_SELF, COACH_HAS_ACTIVE_GROUPS |
 | U11 | `GET` | `/coaches` | `listCoaches` | List coaches | ADMIN | No se declaran códigos específicos |
@@ -611,13 +612,15 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 ## Ampliaciones pendientes del contrato
 Requeridas por los documentos oficiales v02 y aún no declaradas en `openapi.yaml`. Deben diseñarse y aprobarse antes de implementarse:
 - Proceso 3: solicitud de recuperación de contraseña y restablecimiento con token (públicos, bajo `/auth`); se diseña después de la integración de correo.
-- Proceso 3: reporte de indicadores de usuarios (cuentas por rol y periodo, porcentaje de acudientes con deportistas vinculados, cuentas inactivas), solo `ADMIN`. Propuesto: `R5`, `GET /reports/users`.
 - Proceso 1: consulta consolidada del estado de pago por deportista. Se propone cubrirla con E7 y el filtro `athleteId`, sin endpoint nuevo (pendiente de confirmar).
-- Proceso 2: A7 debe incluir la edad del deportista y el contacto del acudiente (nombre y teléfono).
 
 Descartadas por ahora (2026-11-09): la documentación de la matrícula (fuera del alcance) y la renovación explícita por periodo (se mantiene la matrícula continua).
 
 Mejoras futuras (2026-11-09), sin contrato en la entrega actual: código de error para un token vigente de una cuenta inactivada, e inactivación y reactivación de un deportista (con su efecto en E1–E4 y en las matrículas).
+
+Aprobados e incorporados a `openapi.yaml` el 2026-11-10 (Entrega 3, etapas 4 y 5):
+- `R5` (`GET /reports/users`, solo `ADMIN`), esquema `UserReport`: `period` obligatorio; cuentas creadas en el mes por rol, cuentas activas e inactivas actuales por rol, acudientes activos con deportistas y `guardianLinkRate` sobre los acudientes activos. `byRole` siempre trae los tres roles.
+- `A7`/`A8`: `AttendanceRosterEntry` añade `age` (edad a la fecha actual de la academia) y `guardian` (`GuardianContact`: nombres, apellidos y teléfono, este último nulable porque `users.phone` lo es en el MER). Cambio incompatible para el cliente: el frontend debe leer los campos nuevos.
 
 `R1`–`R4` implementados (Entrega 3, etapa 3), sin cambios de contrato. Reglas no explícitas en `openapi.yaml`: R1 toma las matrículas por mes de inicio; R2 sin fechas cubre el mes de `dateTo` (hoy por defecto); R3 sin fechas cubre todo el historial; con ambas fechas el rango máximo es de 366 días (`422 INVALID_DATE_RANGE`); un filtro de grupo o disciplina ajeno al entrenador devuelve datos vacíos; en R3 el entrenador recibe `403` si el deportista no tiene matrícula vigente en uno de sus grupos.
 - El contrato declara algunas reglas detalladas en descripciones. Mantenerlas también en pruebas de servicio, no solo en documentación.
