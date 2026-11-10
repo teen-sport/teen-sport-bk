@@ -35,9 +35,9 @@ Antes de agregar dependencias o cambiar versiones, revisa la configuración real
 
 Los documentos oficiales del proyecto prevalecen sobre la documentación de este repositorio:
 
-- Definición del Proyecto (versión 02, 19/10/2026): alcance, procesos de negocio, actores y KPI.
-- Plan de Gestión de la Calidad del Proyecto (versión 02, 19/10/2026): métricas y requisitos no funcionales RNF-01 a RNF-17.
-- Software Architecture Description – TeenSport (C4 y ADR-01 a ADR-10).
+- Definición del Proyecto (versión 03, 9/11/2026): alcance, procesos de negocio, actores y KPI.
+- Plan de Gestión de la Calidad del Proyecto (versión 02, 19/10/2026, con la nota de alcance de la tercera entrega): métricas y requisitos no funcionales RNF-01 a RNF-17.
+- Software Architecture Description – TeenSport (versión 03, 9/11/2026; C4 y ADR-01 a ADR-10).
 
 La documentación de `docs/` los traduce al backend. Si encuentras una diferencia entre ellos, los documentos oficiales mandan: registra la diferencia y adapta el proyecto.
 
