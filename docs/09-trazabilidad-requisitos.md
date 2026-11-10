@@ -64,7 +64,13 @@ Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la 
 
 | HU | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
-| HU39 Registro y consulta de asistencia | A1–A9; cierra las sesiones futuras de H10 y H11 | Integrada en `development` (PR #23); `./gradlew check` completo pendiente de registrar; correos `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` pendientes de la integración de correo | `SessionServiceTest`, `SessionQueryServiceTest`, `AttendanceServiceTest`, `AttendanceQueryServiceTest`, `DateRangePolicyTest`, `GroupServiceTest`, `SessionAttendanceIntegrationTest` (incluye concurrencia) | RNF-05, RNF-10, RNF-13, RNF-15 |
+| HU39 Registro y consulta de asistencia | A1–A9; cierra las sesiones futuras de H10 y H11 | Integrada en `development` (PR #23); `./gradlew check` completo en verde el 2026-11-09 (369 pruebas); correos `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` pendientes de la integración de correo | `SessionServiceTest`, `SessionQueryServiceTest`, `AttendanceServiceTest`, `AttendanceQueryServiceTest`, `DateRangePolicyTest`, `GroupServiceTest`, `SessionAttendanceIntegrationTest` (incluye concurrencia) | RNF-05, RNF-10, RNF-13, RNF-15 |
+
+## Entrega 3
+
+| Trabajo | IDs API | Estado | Pruebas automatizadas | RNF |
+|---|---|---|---|---|
+| Etapa 2: duplicados concurrentes de cuentas → `409` | U2, U8, U9 | Implementada en `feature/attendance-closure-and-duplicate-accounts` (pendiente de revisión) | `AccountCreatorTest`, `DuplicateAccountRaceIntegrationTest` (incluye concurrencia), `GuardianRegistrationServiceTest`, `UserAdministrationServiceTest` | RNF-11, RNF-13 |
 
 La columna RNF se reasignó el 2026-10-19 según el Plan de Calidad v02: hasta entonces RNF-11 significaba "integridad de datos entre procesos" y se usaba en HU33, HU35, HU36, HU37 y HU39; ahora es "unicidad de cuentas de usuario". La asignación indica qué RNF verifica cada HU, no que su métrica esté cumplida.
 
