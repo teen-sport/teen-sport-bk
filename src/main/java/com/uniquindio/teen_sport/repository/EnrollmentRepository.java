@@ -119,10 +119,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      *
      * @param groupId id del grupo
      * @param period  mes de la sesión, como texto {@code YYYY-MM}
-     * @return los deportistas ordenados por apellidos, nombres e id
+     * @return los deportistas ordenados por apellidos, nombres e id, con el acudiente y su cuenta
+     *         cargados en la misma consulta para el contacto de emergencia
      */
     @Query("""
             select a from Enrollment e join e.athlete a
+              join fetch a.guardian g join fetch g.user
             where e.group.id = :groupId
               and e.status = com.uniquindio.teen_sport.entity.EnrollmentStatus.ACTIVE
               and e.periodMonth <= :period

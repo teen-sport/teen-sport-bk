@@ -11,7 +11,7 @@ Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v03,
 | P3 | E1–E4 | Perfiles de deportistas | AthleteController/AthleteService, AthleteAccessPolicy, AthleteRepository | Edad, vinculación al acudiente, duplicados, acceso a recursos ajenos | RNF-02, RNF-12, RNF-15 |
 | P3 | Pendiente | Recuperación de contraseña | AuthController/AuthService, NotificationService | Token vencido, reutilizado o alterado; respuesta sin revelar cuentas | RNF-13, RNF-14 |
 | P3 | Mejora futura | Inactivación de deportistas | AthleteController/AthleteService | Solo `ADMIN` o el acudiente dueño, conservación del historial, efecto en matrículas | RNF-12, RNF-15 |
-| P3 | Pendiente | Indicadores de usuarios | ReportController/ReportService | Conteos por rol y periodo, acudientes con deportistas, cuentas inactivas | RNF-15 |
+| P3 | R5 | Indicadores de usuarios | ReportController/UserReportService, UserRepository, GuardianRepository | Conteos por rol y periodo, acudientes con deportistas, cuentas inactivas, solo `ADMIN` | RNF-15 |
 | P1 | H1–H5 | Disciplinas | DisciplineController/Service/Repository | Mensualidad positiva, duplicados, desactivación con grupos activos | RNF-13, RNF-15 |
 | P1 | H6–H14 | Grupos y horarios | GroupController/Service, ScheduleController/Service, ScheduleRepository | Capacidad 1–15, entrenador activo, horarios y permisos | RNF-01, RNF-15 |
 | P1 | E5–E15 | Disponibilidad y matrículas | EnrollmentService, EnrollmentLifecycleService, SpotCounter, GroupRepository, EnrollmentRepository | Cupos concurrentes, transiciones de estado, reasignación de grupo, liberación de cupo | RNF-01, RNF-02, RNF-03, RNF-04, RNF-15 |
@@ -19,7 +19,7 @@ Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v03,
 | P1 | E16–E19 | Pagos presenciales | PaymentService, PaymentRecorder, PaymentQueryService, PaymentHistoryRepository | Reporte no cambia estado, importe mínimo, duplicado, roles y pertenencia | RNF-01, RNF-03, RNF-15 |
 | P1 | R1 | Indicadores de matrícula | ReportController/EnrollmentReportService | Conteos por estado, tasas de completitud y abandono, tiempo promedio de confirmación | RNF-15 |
 | P2 | A1–A6 | Sesiones | SessionController, SessionService, SessionQueryService, SessionSlotPolicy, TrainingSessionRepository | Fechas, cancelación, permisos de entrenador, transiciones de estado | RNF-06, RNF-15 |
-| P2 | A7–A9 | Asistencia | AttendanceController, AttendanceService, AttendanceQueryService, AttendanceRecordRepository | Lista elegible, upsert, sesión futura/cancelada, filtros por propiedad | RNF-05, RNF-06, RNF-10, RNF-15 |
+| P2 | A7–A9 | Asistencia | AttendanceController, AttendanceService, AttendanceQueryService, AttendanceRecordRepository, AttendanceMapper | Lista elegible con edad y contacto del acudiente, upsert, sesión futura/cancelada, filtros por propiedad | RNF-05, RNF-06, RNF-10, RNF-15 |
 | P2 | R2–R4 | Indicadores de asistencia | ReportController/AttendanceReportService, RecurrentAbsenceService | Agregaciones, rangos de fecha, aislamiento de datos por rol | RNF-06, RNF-15 |
 | Transversal | MER `notifications` | Notificaciones | NotificationService, adaptador Brevo (al final de la Entrega 3) | Fallos de envío, reintentos, registro de estado y privacidad; confirmar contrato | RNF-14 |
 | Transversal | — | Documentación de código | Todo el backend | Medición de cobertura Javadoc | RNF-17 |
@@ -71,7 +71,9 @@ Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la 
 | Trabajo | IDs API | Estado | Pruebas automatizadas | RNF |
 |---|---|---|---|---|
 | Etapa 2: duplicados concurrentes de cuentas → `409` | U2, U8, U9 | Integrada en `development` (PR #40) | `AccountCreatorTest`, `DuplicateAccountRaceIntegrationTest` (incluye concurrencia), `GuardianRegistrationServiceTest`, `UserAdministrationServiceTest` | RNF-11, RNF-13 |
-| Etapa 3: reportes de matrícula y asistencia | R1, R2, R3, R4 | Implementada en `feature/enrollment-and-attendance-reports` (pendiente de revisión) | `EnrollmentReportServiceTest`, `AttendanceReportServiceTest`, `RecurrentAbsenceServiceTest`, `PercentagesTest`, `DateRangePolicyTest`, `ReportIntegrationTest` | RNF-06, RNF-10, RNF-15 |
+| Etapa 3: reportes de matrícula y asistencia | R1, R2, R3, R4 | Integrada en `development` (PR #41) | `EnrollmentReportServiceTest`, `AttendanceReportServiceTest`, `RecurrentAbsenceServiceTest`, `PercentagesTest`, `DateRangePolicyTest`, `ReportIntegrationTest` | RNF-06, RNF-10, RNF-15 |
+| Etapa 4: indicadores del Proceso 3 | R5 | Implementada en `feature/user-indicators-and-attendance-roster` (pendiente de revisión) | `UserReportServiceTest`, `ReportIntegrationTest` | RNF-15 |
+| Etapa 5: ampliación de la lista de asistencia | A7, A8 | Implementada en `feature/user-indicators-and-attendance-roster` (pendiente de revisión) | `AttendanceServiceTest`, `SessionAttendanceIntegrationTest` | RNF-15 |
 
 La columna RNF se reasignó el 2026-10-19 según el Plan de Calidad v02: hasta entonces RNF-11 significaba "integridad de datos entre procesos" y se usaba en HU33, HU35, HU36, HU37 y HU39; ahora es "unicidad de cuentas de usuario". La asignación indica qué RNF verifica cada HU, no que su métrica esté cumplida.
 

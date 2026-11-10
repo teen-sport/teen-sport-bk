@@ -25,7 +25,7 @@
 - No existe DELETE de deportistas en el contrato; la salida de la academia se representa mediante la gestión de la matrícula.
 
 ### Indicadores del Proceso 3
-- **Pendiente de implementar, Entrega 3, etapa 4** (KPI de la Definición P3): número de cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas. Requiere un reporte nuevo en el contrato (solo `ADMIN`).
+- `R5` (Entrega 3, etapa 4; KPI de la Definición P3), solo `ADMIN`: número de cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas. **Implementado (2026-11-10), pendiente de revisión.** Las cuentas registradas son las creadas en el mes de `period` (zona de la academia); activas, inactivas y vinculación son el estado actual, porque el estado de las cuentas no guarda historia. `guardianLinkRate` = acudientes activos con al menos un deportista / acudientes activos.
 
 ## Proceso 1 — Gestión de Inscripción y Matrícula
 
@@ -67,7 +67,7 @@
 
 ### Sesiones y asistencia
 - `A1–A6`: crear, listar, generar, consultar, actualizar y cancelar sesiones, con acceso limitado a grupos asignados cuando el actor sea entrenador.
-- `A7`: consultar lista de deportistas elegibles para asistencia de una sesión. **Pendiente de implementar** (decisión del 2026-11-09): el entrenador debe ver también la edad del deportista y el contacto del acudiente (nombre y teléfono) para emergencias; requiere ampliar el contrato.
+- `A7`: consultar lista de deportistas elegibles para asistencia de una sesión. Incluye la edad del deportista (a la fecha actual de la academia, no a la de la sesión) y el contacto del acudiente (nombres, apellidos y teléfono) para emergencias (decisión del 2026-11-09). **Ampliación implementada (2026-11-10), pendiente de revisión**; A8 devuelve la misma lista.
 - `A8`: registrar la asistencia completa del grupo en una sola llamada; guardar de nuevo sobrescribe marcas anteriores (upsert). La sesión pasa a `COMPLETED`; no se puede registrar asistencia en una sesión futura o cancelada.
 - `A9`: consultar historial paginado de asistencia; administradores ven todo, entrenadores sus grupos y acudientes sus deportistas.
 - Notificación de horarios y novedades a los acudientes por correo: al final de la Entrega 3.

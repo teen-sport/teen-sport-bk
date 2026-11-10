@@ -4,10 +4,12 @@ import com.uniquindio.teen_sport.dto.AthleteAttendanceReport;
 import com.uniquindio.teen_sport.dto.AttendanceReport;
 import com.uniquindio.teen_sport.dto.EnrollmentReport;
 import com.uniquindio.teen_sport.dto.RecurrentAbsence;
+import com.uniquindio.teen_sport.dto.UserReport;
 import com.uniquindio.teen_sport.security.CurrentUserService;
 import com.uniquindio.teen_sport.service.AttendanceReportService;
 import com.uniquindio.teen_sport.service.EnrollmentReportService;
 import com.uniquindio.teen_sport.service.RecurrentAbsenceService;
+import com.uniquindio.teen_sport.service.UserReportService;
 import jakarta.validation.constraints.Min;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -21,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Reportes e indicadores de matrícula y asistencia (R1–R4). El alcance por rol se aplica en los
+ * Reportes e indicadores de matrícula, asistencia y cuentas de usuario (R1–R5). El alcance por rol se aplica en los
  * servicios.
  */
 @RestController
@@ -31,20 +33,24 @@ public class ReportController {
     private final EnrollmentReportService enrollmentReportService;
     private final AttendanceReportService attendanceReportService;
     private final RecurrentAbsenceService recurrentAbsenceService;
+    private final UserReportService userReportService;
     private final CurrentUserService currentUserService;
 
     /**
      * @param enrollmentReportService informe de matrículas
      * @param attendanceReportService informes de asistencia
      * @param recurrentAbsenceService ausencias consecutivas
+     * @param userReportService       informe de cuentas de usuario
      * @param currentUserService      identidad del usuario autenticado
      */
     public ReportController(EnrollmentReportService enrollmentReportService,
                             AttendanceReportService attendanceReportService,
-                            RecurrentAbsenceService recurrentAbsenceService, CurrentUserService currentUserService) {
+                            RecurrentAbsenceService recurrentAbsenceService, UserReportService userReportService,
+                            CurrentUserService currentUserService) {
         this.enrollmentReportService = enrollmentReportService;
         this.attendanceReportService = attendanceReportService;
         this.recurrentAbsenceService = recurrentAbsenceService;
+        this.userReportService = userReportService;
         this.currentUserService = currentUserService;
     }
 
@@ -113,5 +119,17 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom) {
         return recurrentAbsenceService.recurrentAbsences(currentUserService.current(), minConsecutive, groupId,
                 dateFrom);
+    }
+
+    /**
+     * R5: indicadores de cuentas de usuario.
+     *
+     * @param period mes de creación de las cuentas contadas como registradas, {@code YYYY-MM}
+     * @return 200 con el informe
+     */
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserReport getUserReport(@RequestParam YearMonth period) {
+        return userReportService.userReport(period);
     }
 }

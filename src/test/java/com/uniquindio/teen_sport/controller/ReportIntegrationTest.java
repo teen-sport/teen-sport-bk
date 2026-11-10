@@ -19,19 +19,24 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import static com.uniquindio.teen_sport.support.AuthTestClient.bearer;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * R1–R4 contra la API real, con PostgreSQL.
+ * R1–R5 contra la API real, con PostgreSQL.
  *
  * <p>Como la base se comparte entre clases, R1 usa un periodo lejano que ninguna otra prueba usa, y
  * R2–R4 se filtran por un grupo propio. El estado de pago de R1 incluye matrículas de otros periodos,
- * así que se compara la diferencia antes y después de crear los datos.</p>
+ * así que se compara la diferencia antes y después de crear los datos. R5 cuenta todas las cuentas de
+ * la base, por lo que también se compara por diferencia.</p>
  */
 @IntegrationTest
 class ReportIntegrationTest {
@@ -97,6 +102,61 @@ class ReportIntegrationTest {
                 .andExpect(jsonPath("$.byDiscipline[0].requests").value(4))
                 .andExpect(jsonPath("$.byDiscipline[0].active").value(1))
                 .andExpect(jsonPath("$.payments.overdue").value(overdueBefore + 1));
+    }
+
+    @Test
+    void userReportCountsNewAccountsInactiveOnesAndGuardiansWithAthletes() throws Exception {
+        String url = REPORTS + "/users?period=" + YearMonth.from(today);
+        String before = send(get(url), adminToken, null)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+
+        academy.newAthlete(guardian.token());
+        auth.newGuardian();
+        TestCoach inactive = auth.newCoach();
+        send(patch("/api/v1/users/" + inactive.userId() + "/status"), adminToken, "{\"status\":\"INACTIVE\"}")
+                .andExpect(status().isOk());
+
+        String after = send(get(url), adminToken, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period").value(YearMonth.from(today).toString()))
+                .andExpect(jsonPath("$.byRole[*].role").value(contains("ADMIN", "COACH", "GUARDIAN")))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(difference(before, after, "$.registeredInPeriod")).isEqualTo(2);
+        assertThat(difference(before, after, "$.byRole[1].registeredInPeriod")).isEqualTo(1);
+        assertThat(difference(before, after, "$.byRole[2].registeredInPeriod")).isEqualTo(1);
+        assertThat(difference(before, after, "$.byRole[1].inactive")).isEqualTo(1);
+        assertThat(difference(before, after, "$.byRole[1].active")).isZero();
+        assertThat(difference(before, after, "$.inactiveAccounts")).isEqualTo(1);
+        assertThat(difference(before, after, "$.byRole[2].active")).isEqualTo(1);
+        assertThat(difference(before, after, "$.guardiansWithAthletes")).isEqualTo(1);
+        int withAthletes = JsonPath.read(after, "$.guardiansWithAthletes");
+        int activeGuardians = JsonPath.read(after, "$.byRole[2].active");
+        double rate = ((Number) JsonPath.read(after, "$.guardianLinkRate")).doubleValue();
+        assertThat(rate).isCloseTo(100.0 * withAthletes / activeGuardians, within(0.05));
+    }
+
+    @Test
+    void userReportOfAPeriodWithoutAccountsHasZeroRegistrations() throws Exception {
+        send(get(REPORTS + "/users?period=" + YearMonth.from(today).plusYears(70)), adminToken, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.registeredInPeriod").value(0))
+                .andExpect(jsonPath("$.byRole", hasSize(3)))
+                .andExpect(jsonPath("$.byRole[*].registeredInPeriod").value(contains(0, 0, 0)));
+    }
+
+    @Test
+    void userReportIsOnlyForAdminsAndRequiresAValidPeriod() throws Exception {
+        String url = REPORTS + "/users?period=" + YearMonth.from(today);
+        send(get(url), coach.token(), null).andExpect(status().isForbidden());
+        send(get(url), guardian.token(), null).andExpect(status().isForbidden());
+        mockMvc.perform(get(url)).andExpect(status().isUnauthorized());
+        send(get(REPORTS + "/users"), adminToken, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        send(get(REPORTS + "/users?period=2026-13"), adminToken, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -253,6 +313,10 @@ class ReportIntegrationTest {
                 "{\"records\":[{\"athleteId\":%d,\"status\":\"%s\"},{\"athleteId\":%d,\"status\":\"%s\"}]}"
                         .formatted(firstId, firstStatus, secondId, secondStatus))
                 .andExpect(status().isOk());
+    }
+
+    private static int difference(String before, String after, String path) {
+        return JsonPath.<Integer>read(after, path) - JsonPath.<Integer>read(before, path);
     }
 
     private ResultActions send(MockHttpServletRequestBuilder builder, String token, String body) throws Exception {

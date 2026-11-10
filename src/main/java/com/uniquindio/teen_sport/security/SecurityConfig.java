@@ -146,8 +146,11 @@ public class SecurityConfig {
     /** Historial de asistencia (A9): los tres roles; el alcance se aplica en el servicio. */
     private static final String ATTENDANCE_HISTORY_ENDPOINT = API_PREFIX + "/attendance-records";
 
-    /** Informe de matrículas (R1): solo {@code ADMIN}. */
-    private static final String ENROLLMENT_REPORT_ENDPOINT = API_PREFIX + "/reports/enrollments";
+    /** Informes de matrículas (R1) y de cuentas de usuario (R5): solo {@code ADMIN}. */
+    private static final String[] ADMIN_REPORT_ENDPOINTS = {
+            API_PREFIX + "/reports/enrollments",
+            API_PREFIX + "/reports/users"
+    };
 
     /**
      * Asistencia de un deportista (R3): los tres roles; la propiedad se comprueba en el servicio. Debe
@@ -204,7 +207,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH, GUARDIAN)
                         .requestMatchers(SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH)
                         .requestMatchers(ATTENDANCE_HISTORY_ENDPOINT).hasAnyRole(ADMIN, COACH, GUARDIAN)
-                        .requestMatchers(ENROLLMENT_REPORT_ENDPOINT).hasRole(ADMIN)
+                        .requestMatchers(ADMIN_REPORT_ENDPOINTS).hasRole(ADMIN)
                         .requestMatchers(ATHLETE_ATTENDANCE_REPORT_ENDPOINT).hasAnyRole(ADMIN, COACH, GUARDIAN)
                         .requestMatchers(REPORT_ENDPOINTS).hasAnyRole(ADMIN, COACH)
                         .anyRequest().authenticated())
