@@ -27,7 +27,7 @@ Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3
 
 **Estado (2026-10-11): en curso.**
 - HU28 integrada en `development` (PR #11): entidades `roles`, `users`, `guardians`, `coaches`; JWT HS256 con resource server; BCrypt; política de contraseñas; registro de acudiente (U2) y login (U1); 401/403 con formato `Error`; CORS explícito; roles y administrador inicial al arrancar. `./gradlew check`: 82 pruebas en verde.
-- Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.
+- ~~Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.~~ Resuelta el 2026-11-09 (Entrega 3, etapa 2).
 - HU29 integrada en `development` (PR #12): U3 `GET /users/me`, U4 `PUT /users/me` (reemplazo completo; campos de otro rol ignorados), U5 `PUT /users/me/password`; identidad tomada del JWT (`CurrentUserService`); `RoleProfileResolver` compartido con el login. `./gradlew check`: 109 pruebas en verde.
 - HU30 implementada en `feature/HU30/user-administration` (pendiente de revisión y PR): U6 listado paginado con filtros y búsqueda, U7 detalle, U8 creación de `ADMIN`/`COACH`, U9 edición, U10 activación/desactivación, U11 entrenadores, U12 acudientes; autorización `ADMIN` en el filtro y con `@PreAuthorize`; carga en bloque de perfiles para evitar N+1; `AccountCreator` y `ProfileEditor` compartidos con U2, U4 y el administrador inicial. `./gradlew check`: 147 pruebas en verde.
 - `COACH_HAS_ACTIVE_GROUPS` en U10: cerrado en HU33.
@@ -108,7 +108,7 @@ Decisiones (2026-10-14):
 - En H10 y H11, "futuras" son las sesiones `SCHEDULED` con fecha de hoy en adelante.
 - Las marcas de deportistas que salen de la lista se conservan en el historial (A9) y no aparecen en A7.
 
-**Estado (2026-11-09): HU39 integrada en `development` (PR #23); falta registrar el `./gradlew check` completo (Entrega 3, etapa 1).**
+**Estado (2026-11-09): HU39 integrada en `development` (PR #23); `./gradlew check` completo en verde sobre `development` el 2026-11-09: 369 pruebas, 0 fallos (Entrega 3, etapa 1).**
 - HU39: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`.
 - Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Entrega 3, etapa 6.
 
@@ -132,8 +132,8 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 
 | Orden | Etapa | IDs | Requiere contrato nuevo | Estado |
 |---|---|---|---|---|
-| 1 | Cierre de HU39 | A1–A9 | No | Pendiente |
-| 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Pendiente |
+| 1 | Cierre de HU39 | A1–A9 | No | Hecho (2026-11-09) |
+| 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Implementada (pendiente de revisión) |
 | 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Pendiente |
 | 4 | Indicadores del Proceso 3 | Nuevo (R5 propuesto) | Sí | Pendiente |
 | 5 | Ampliación de la lista de asistencia | A7 | Sí (cambio de respuesta) | Pendiente |
@@ -142,13 +142,20 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 | 8 | Calidad y despliegue | Transversal | No | Pendiente (cierre) |
 
 ### Etapa 1 — Cierre de HU39
-- HU39 está integrada en `development` (PR #23), pero su `./gradlew check` completo no quedó registrado.
-- Ejecutar la suite completa, corregir lo que falle y actualizar el estado en `docs/09` y en la Fase 6.
+**Estado (2026-11-09): hecho.** `./gradlew check` completo sobre `development` (commit `9ad02ff`), con PostgreSQL 18.6 en Testcontainers: 369 pruebas, 0 fallos, 0 omitidas; cobertura JaCoCo de líneas 99,6 % e instrucciones 99,5 %. No hubo que corregir código.
 
 ### Etapa 2 — Duplicados concurrentes de cuentas (RNF-11, RNF-13)
 - Hoy dos registros simultáneos con el mismo correo o documento responden `500`, porque la violación de la restricción única de PostgreSQL no se traduce.
 - Traducir esa violación al `409` de duplicado correspondiente (correo o documento) sin exponer detalles internos, en U2 y en la creación y edición de usuarios (U8, U9).
 - Pruebas de integración con solicitudes concurrentes.
+
+**Estado (2026-11-09): implementada en `feature/attendance-closure-and-duplicate-accounts`, pendiente de revisión y PR.**
+- `AccountCreator` escribe la cuenta (U2, U8 y el administrador inicial) o el cambio de correo (U9, nuevo método `changeEmail`) y la envía a la base dentro del caso de uso. Si la base la rechaza, `AccountConflictLookup` consulta en una transacción nueva (`REQUIRES_NEW`, solo lectura) qué dato ya está registrado y se responde `409 EMAIL_ALREADY_REGISTERED` o `409 ID_NUMBER_ALREADY_REGISTERED`, conservando la causa original. Si no es el correo ni el documento, el error se relanza sin cambios.
+- La consulta en una transacción nueva es necesaria porque PostgreSQL aborta la transacción que recibió el error; así la traducción tampoco depende de los nombres de las restricciones de la base desplegada, que se crea fuera de la aplicación.
+- `BusinessException` admite una causa, para no perder el error original.
+- Pruebas: `AccountCreatorTest` (7) y `DuplicateAccountRaceIntegrationTest` (3). La prueba de integración reproduce la carrera de forma determinista: una transacción de la prueba inserta la cuenta sin confirmar, la solicitud queda bloqueada en el índice único y, al confirmar la primera, debe recibir `409`. Contra el código anterior las dos pruebas de registro fallan con `500`.
+- `./gradlew check`: 379 pruebas en verde; cobertura de líneas 99,6 %.
+- Fuera de esta etapa: los mismos duplicados simultáneos en deportistas (`DUPLICATE_ATHLETE`) y disciplinas (`DUPLICATE_DISCIPLINE`) pueden seguir respondiendo `500`.
 
 ### Etapa 3 — Reportes R1–R4 (KPI de los Procesos 1 y 2)
 - Contrato ya definido en `openapi.yaml`; cubre los KPI de la Definición:

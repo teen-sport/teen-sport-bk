@@ -48,7 +48,7 @@ class GuardianRegistrationServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         AccountCreator accountCreator = new AccountCreator(userRepository, roleRepository, passwordEncoder,
-                new PasswordPolicy(), clock);
+                new PasswordPolicy(), new AccountConflictLookup(userRepository), clock);
         service = new GuardianRegistrationService(accountCreator, guardianRepository, new UserProfileMapper(), clock);
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(roleRepository.findByName(RoleName.GUARDIAN))
