@@ -137,8 +137,8 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 | 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Hecho (PR #41) |
 | 4 | Indicadores del Proceso 3 | R5 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #42) |
 | 5 | Ampliación de la lista de asistencia | A7, A8 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #42) |
-| 6 | Correo y notificaciones | MER `notifications`; U2, E6, E12, E13, A2, A5, A6 | Sí (aprobado el 2026-11-10) | Implementada en `feature/email-notifications` (pendiente de revisión) |
-| 7 | Recuperación de contraseña | Nuevos, bajo `/auth` | Sí, más tabla en el MER | Pendiente (al final) |
+| 6 | Correo y notificaciones | MER `notifications`; U2, E6, E12, E13, A2, A5, A6 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #43) |
+| 7 | Recuperación de contraseña | U13, U14 (`/auth/password-reset/*`) | Sí (aprobado el 2026-11-10), tabla `password_reset_tokens` | Implementada en `feature/password-recovery` (pendiente de revisión) |
 | 8 | Calidad y despliegue | Transversal | No | Pendiente (cierre) |
 
 ### Etapa 1 — Cierre de HU39
@@ -217,12 +217,14 @@ Cierre de las etapas 4 y 5: `./gradlew check` el 2026-11-10 con PostgreSQL 18.6 
 - Definir el ciclo de vida en `notifications` (persistencia antes o después del envío, estado, intentos).
 - `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit, reintentos y registro de fallos sin afirmar envíos no confirmados.
 - Pruebas con el proveedor simulado y medición de RNF-14 (≥ 95 %).
-- **Estado (2026-11-10): implementada, pendiente de revisión.** Catálogo aprobado: `ACCOUNT_REGISTERED`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`, `NO_SPOTS_AVAILABLE`, `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` (la recuperación de contraseña llega en la etapa 7). Ciclo de vida: `PENDING` después del commit (o del rollback en E6), envío asíncrono y `SENT` o `FAILED`, con hasta 3 intentos para fallos transitorios. Adaptador con `RestClient` en lugar del SDK (ADR-09 actualizado). `./gradlew check`: 448 pruebas sin fallos; cobertura JaCoCo 99,4 % de líneas y 96,1 % de ramas.
+- **Estado (2026-11-10): integrada en `development` (PR #43).** Catálogo aprobado: `ACCOUNT_REGISTERED`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`, `NO_SPOTS_AVAILABLE`, `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` (la recuperación de contraseña llega en la etapa 7). Ciclo de vida: `PENDING` después del commit (o del rollback en E6), envío asíncrono y `SENT` o `FAILED`, con hasta 3 intentos para fallos transitorios. Adaptador con `RestClient` en lugar del SDK (ADR-09 actualizado). `./gradlew check`: 448 pruebas sin fallos; cobertura JaCoCo 99,4 % de líneas y 96,1 % de ramas.
 - Limitaciones: los reintentos viven en memoria y se pierden si la aplicación se reinicia; no hay reenvío programado de las notificaciones `FAILED`; RNF-14 solo puede medirse con envíos reales en el despliegue.
 
 ### Etapa 7 — Recuperación de contraseña (al final, después del correo)
 - Contrato de solicitud y restablecimiento (públicos, bajo `/auth`) y tabla de tokens en el MER (usuario, hash del token, vencimiento, fecha de uso y creación).
 - Token aleatorio de un solo uso, guardado solo como hash, con vencimiento corto; la solicitud responde igual exista o no el correo; el restablecimiento aplica `PasswordPolicy`.
+- **Estado (2026-11-10): implementada en `feature/password-recovery`, pendiente de revisión.** U13 y U14 (contrato aprobado el 2026-11-10), entidad `PasswordResetToken`, `PasswordResetService`, correo `PASSWORD_RESET` y variable `PASSWORD_RESET_URL`. `./gradlew check`: 466 pruebas sin fallos; cobertura JaCoCo 99,3 % de líneas y 96,2 % de ramas.
+- Limitaciones: sin límite de solicitudes por correo o IP; los JWT emitidos no se revocan; la tabla falta en `MER.pdf`.
 
 ### Etapa 8 — Calidad y despliegue (cierre)
 - Ejecutar la suite completa y revisar la cobertura (JaCoCo) y el Javadoc (RNF-17, ≥ 80 %).

@@ -45,7 +45,7 @@ JUnit 5, Mockito, Spring Boot Test, MockMvc o WebTestClient según el stack MVC/
 - Dos registros concurrentes con el mismo correo o documento: uno se crea y el otro recibe `409`, nunca `500`.
 - Inicio de sesión con credenciales incorrectas y con cuenta inactiva (RNF-13).
 - Cada deportista queda vinculado a su acudiente; ningún acudiente ve o modifica deportistas ajenos (RNF-12).
-- Recuperación de contraseña (cuando se implemente): token vencido, reutilizado o alterado; misma respuesta para correos existentes e inexistentes.
+- Recuperación de contraseña (U13, U14; `PasswordResetServiceTest`, `PasswordResetIntegrationTest`): token vencido, reutilizado, reemplazado, inventado y de cuenta inactiva; misma respuesta `202` sin cuerpo para correos existentes, inexistentes e inactivos; contraseña débil sin consumir el token; dos restablecimientos simultáneos con el mismo token (uno `204` y otro `422`); en la base solo queda el hash.
 
 ### Notificaciones por correo (Entrega 3, etapa 6)
 - Nunca se llama a Brevo real: las pruebas de integración usan `RecordingEmailSender` (en memoria, `@Primary`) y un ejecutor síncrono para `@Async` (`NotificationTestConfiguration`); el adaptador se prueba con `MockRestServiceServer`.

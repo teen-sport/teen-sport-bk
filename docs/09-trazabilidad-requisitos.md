@@ -9,7 +9,7 @@ Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v03,
 | P3 | U1–U5 | Autenticación y perfil | AuthController/AuthService, UserController, MyAccountService, GuardianRegistrationService, SecurityConfig, JWT, DTO | Login válido/inválido, cuenta inactiva, expiración JWT, cambio de contraseña, campos protegidos, duplicados | RNF-07, RNF-11, RNF-13, RNF-15, RNF-16 |
 | P3 | U6–U12 | Administración de usuarios | UserAdminController, UserDirectoryController, UserAdministrationService, UserDirectoryService, UserRepository | Roles, duplicados, activación e inactivación, paginación y búsqueda | RNF-11, RNF-13, RNF-15 |
 | P3 | E1–E4 | Perfiles de deportistas | AthleteController/AthleteService, AthleteAccessPolicy, AthleteRepository | Edad, vinculación al acudiente, duplicados, acceso a recursos ajenos | RNF-02, RNF-12, RNF-15 |
-| P3 | Pendiente | Recuperación de contraseña | AuthController/AuthService, NotificationService | Token vencido, reutilizado o alterado; respuesta sin revelar cuentas | RNF-13, RNF-14 |
+| P3 | U13, U14 | Recuperación de contraseña | AuthController, PasswordResetService, PasswordResetTokenRepository, NotificationService | Token vencido, reutilizado, reemplazado o alterado; respuesta sin revelar cuentas; uso concurrente | RNF-13, RNF-14 |
 | P3 | Mejora futura | Inactivación de deportistas | AthleteController/AthleteService | Solo `ADMIN` o el acudiente dueño, conservación del historial, efecto en matrículas | RNF-12, RNF-15 |
 | P3 | R5 | Indicadores de usuarios | ReportController/UserReportService, UserRepository, GuardianRepository | Conteos por rol y periodo, acudientes con deportistas, cuentas inactivas, solo `ADMIN` | RNF-15 |
 | P1 | H1–H5 | Disciplinas | DisciplineController/Service/Repository | Mensualidad positiva, duplicados, desactivación con grupos activos | RNF-13, RNF-15 |
@@ -74,7 +74,8 @@ Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la 
 | Etapa 3: reportes de matrícula y asistencia | R1, R2, R3, R4 | Integrada en `development` (PR #41) | `EnrollmentReportServiceTest`, `AttendanceReportServiceTest`, `RecurrentAbsenceServiceTest`, `PercentagesTest`, `DateRangePolicyTest`, `ReportIntegrationTest` | RNF-06, RNF-10, RNF-15 |
 | Etapa 4: indicadores del Proceso 3 | R5 | Integrada en `development` (PR #42) | `UserReportServiceTest`, `ReportIntegrationTest` | RNF-15 |
 | Etapa 5: ampliación de la lista de asistencia | A7, A8 | Integrada en `development` (PR #42) | `AttendanceServiceTest`, `SessionAttendanceIntegrationTest` | RNF-15 |
-| Etapa 6: correo y notificaciones | U2, E6, E12, E13, A2, A5, A6; MER `notifications` | Implementada en `feature/email-notifications` (pendiente de revisión) | `NotificationServiceTest`, `NotificationDispatcherTest`, `BrevoEmailSenderTest`, `NotificationIntegrationTest` y las pruebas de los servicios afectados | RNF-14 |
+| Etapa 6: correo y notificaciones | U2, E6, E12, E13, A2, A5, A6; MER `notifications` | Integrada en `development` (PR #43) | `NotificationServiceTest`, `NotificationDispatcherTest`, `BrevoEmailSenderTest`, `NotificationIntegrationTest` y las pruebas de los servicios afectados | RNF-14 |
+| Etapa 7: recuperación de contraseña | U13, U14; tabla `password_reset_tokens` | Implementada en `feature/password-recovery` (pendiente de revisión) | `PasswordResetServiceTest`, `PasswordResetIntegrationTest`, `NotificationServiceTest` | RNF-13, RNF-14 |
 
 La columna RNF se reasignó el 2026-10-19 según el Plan de Calidad v02: hasta entonces RNF-11 significaba "integridad de datos entre procesos" y se usaba en HU33, HU35, HU36, HU37 y HU39; ahora es "unicidad de cuentas de usuario". La asignación indica qué RNF verifica cada HU, no que su métrica esté cumplida.
 
