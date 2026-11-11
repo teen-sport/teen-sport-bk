@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * @param groupId         id del grupo
  * @param dateFrom        primera fecha, incluida
  * @param dateTo          última fecha, incluida
- * @param notifyGuardians si se avisa a los acudientes; el correo llega con la Fase 7
+ * @param notifyGuardians si se envía {@code SCHEDULE_PUBLISHED} a los acudientes del grupo
  */
 public record GenerateSessionsRequest(
         @NotNull Integer groupId,

@@ -35,10 +35,13 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class SessionServiceTest {
@@ -49,13 +52,14 @@ class SessionServiceTest {
     private final GroupRepository groupRepository = mock(GroupRepository.class);
     private final ScheduleRepository scheduleRepository = mock(ScheduleRepository.class);
     private final TrainingSessionRepository sessionRepository = mock(TrainingSessionRepository.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
     private SessionService service;
     private Group group;
 
     @BeforeEach
     void setUp() {
         service = new SessionService(groupRepository, scheduleRepository, sessionRepository, new GroupAccessPolicy(),
-                new SessionSlotPolicy(sessionRepository, SessionFixtures.calendar()));
+                new SessionSlotPolicy(sessionRepository, SessionFixtures.calendar()), notificationService);
         group = SessionFixtures.group();
         when(groupRepository.findDetailedById(7)).thenReturn(Optional.of(group));
         when(sessionRepository.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -121,6 +125,16 @@ class SessionServiceTest {
                 tuple(to, FOUR),
                 tuple(to, LocalTime.of(18, 0)));
         verify(groupRepository).findLockedById(7);
+        verify(notificationService).schedulePublished(eq(group), argThat(created -> created.size() == 4));
+    }
+
+    @Test
+    void generatingWithoutNotifyDoesNotWarnTheGuardians() {
+        when(scheduleRepository.findByGroupId(7)).thenReturn(List.of(schedule(DayOfWeek.MONDAY, FOUR, FIVE)));
+
+        service.generate(ADMIN, new GenerateSessionsRequest(7, TODAY, TODAY.plusDays(7), false));
+
+        verifyNoInteractions(notificationService);
     }
 
     @Test
@@ -157,6 +171,29 @@ class SessionServiceTest {
         order.verify(sessionRepository).findLockedById(5);
         order.verify(sessionRepository).existsByGroupIdAndSessionDateAndStartTimeAndIdNot(7, tomorrow,
                 LocalTime.of(8, 0), 5);
+        verify(notificationService).sessionRescheduled(session, TODAY, LocalTime.of(16, 0));
+    }
+
+    @Test
+    void changingOnlyTheNotesDoesNotWarnTheGuardians() {
+        TrainingSession session = SessionFixtures.session(5, group, TODAY);
+        lockable(session);
+
+        service.reschedule(COACH, 5, new UpdateSessionRequest(TODAY, LocalTime.of(16, 0), LocalTime.of(17, 0),
+                "Traer hidratación"));
+
+        assertThat(session.getNotes()).isEqualTo("Traer hidratación");
+        verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void changingOnlyTheEndTimeWarnsTheGuardians() {
+        TrainingSession session = SessionFixtures.session(5, group, TODAY);
+        lockable(session);
+
+        service.reschedule(COACH, 5, new UpdateSessionRequest(TODAY, LocalTime.of(16, 0), LocalTime.of(18, 0), null));
+
+        verify(notificationService).sessionRescheduled(session, TODAY, LocalTime.of(16, 0));
     }
 
     @Test
@@ -174,6 +211,7 @@ class SessionServiceTest {
 
         assertThat(cancelled.status()).isEqualTo(SessionStatus.CANCELLED);
         assertThat(cancelled.notes()).isEqualTo("Lluvia");
+        verify(notificationService).sessionCancelled(session);
         BusinessException again = failure(() -> service.cancel(ADMIN, 5, "Otra"));
         assertThat(again.getCode()).isEqualTo(ErrorCode.INVALID_STATE);
         assertThat(again.getStatus()).isEqualTo(HttpStatus.CONFLICT);

@@ -49,6 +49,8 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             API_PREFIX + "/auth/login",
+            API_PREFIX + "/auth/password-reset/request",
+            API_PREFIX + "/auth/password-reset/confirm",
             API_PREFIX + "/users/register"
     };
 
@@ -146,6 +148,24 @@ public class SecurityConfig {
     /** Historial de asistencia (A9): los tres roles; el alcance se aplica en el servicio. */
     private static final String ATTENDANCE_HISTORY_ENDPOINT = API_PREFIX + "/attendance-records";
 
+    /** Informes de matrículas (R1) y de cuentas de usuario (R5): solo {@code ADMIN}. */
+    private static final String[] ADMIN_REPORT_ENDPOINTS = {
+            API_PREFIX + "/reports/enrollments",
+            API_PREFIX + "/reports/users"
+    };
+
+    /**
+     * Asistencia de un deportista (R3): los tres roles; la propiedad se comprueba en el servicio. Debe
+     * evaluarse antes que {@link #REPORT_ENDPOINTS}.
+     */
+    private static final String ATHLETE_ATTENDANCE_REPORT_ENDPOINT = API_PREFIX + "/reports/attendance/athletes/*";
+
+    /** Resto de reportes (R2, R4): {@code ADMIN} y {@code COACH}; el alcance se aplica en el servicio. */
+    private static final String[] REPORT_ENDPOINTS = {
+            API_PREFIX + "/reports",
+            API_PREFIX + "/reports/**"
+    };
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/actuator/health", "/actuator/health/**",
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
@@ -189,6 +209,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH, GUARDIAN)
                         .requestMatchers(SESSION_ENDPOINTS).hasAnyRole(ADMIN, COACH)
                         .requestMatchers(ATTENDANCE_HISTORY_ENDPOINT).hasAnyRole(ADMIN, COACH, GUARDIAN)
+                        .requestMatchers(ADMIN_REPORT_ENDPOINTS).hasRole(ADMIN)
+                        .requestMatchers(ATHLETE_ATTENDANCE_REPORT_ENDPOINT).hasAnyRole(ADMIN, COACH, GUARDIAN)
+                        .requestMatchers(REPORT_ENDPOINTS).hasAnyRole(ADMIN, COACH)
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))

@@ -141,8 +141,7 @@ public class UserAdministrationService {
         if (email != null) {
             String normalized = EmailNormalizer.normalize(email);
             if (!normalized.equals(user.getEmail())) {
-                accountCreator.ensureEmailAvailable(normalized);
-                user.changeEmail(normalized);
+                accountCreator.changeEmail(user, normalized);
             }
         }
         RoleProfileResolver.RoleProfiles profiles = roleProfileResolver.resolve(user);

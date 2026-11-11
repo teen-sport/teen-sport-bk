@@ -35,7 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>La lista son los deportistas con matrícula {@code ACTIVE} en el grupo iniciada en el mes de la
  * sesión o antes, ordenados por apellidos. Las marcas de deportistas que ya no están en la lista (por
- * ejemplo, porque cancelaron después) se conservan en el historial, pero no aparecen en la lista.</p>
+ * ejemplo, porque cancelaron después) se conservan en el historial, pero no aparecen en la lista. Cada
+ * deportista incluye su edad y el contacto de su acudiente para emergencias (decisión del 2026-11-09),
+ * datos que solo ven el entrenador del grupo y el administrador.</p>
  *
  * <p>Registrar bloquea la sesión: dos registros simultáneos se serializan y el segundo actualiza las
  * marcas del primero en lugar de duplicarlas.</p>
@@ -88,7 +90,7 @@ public class AttendanceService {
         accessPolicy.requireAccess(user, session.getGroup());
         Map<Integer, AttendanceStatus> marks = attendanceRepository.findBySessionId(sessionId).stream()
                 .collect(Collectors.toMap(attendance -> attendance.getAthlete().getId(), AttendanceRecord::getStatus));
-        return AttendanceMapper.toRoster(session, rosterOf(session), marks);
+        return AttendanceMapper.toRoster(session, rosterOf(session), marks, calendar.today());
     }
 
     /**
@@ -114,7 +116,7 @@ public class AttendanceService {
         requireWholeRoster(marks.keySet(), roster);
         save(session, roster, marks);
         session.setStatus(SessionStatus.COMPLETED);
-        return AttendanceMapper.toRoster(session, roster, marks);
+        return AttendanceMapper.toRoster(session, roster, marks, calendar.today());
     }
 
     private void requireRecordable(TrainingSession session) {

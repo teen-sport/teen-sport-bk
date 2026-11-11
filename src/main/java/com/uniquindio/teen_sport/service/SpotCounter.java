@@ -48,12 +48,27 @@ public class SpotCounter {
 
     /**
      * @param group grupo bloqueado
+     * @return si las matrículas vigentes aún no llenan la capacidad
+     */
+    public boolean hasFreeSpot(Group group) {
+        return inForce(group.getId()) < group.getMaxCapacity();
+    }
+
+    /**
+     * @param group grupo bloqueado
      * @throws BusinessException 409 {@code NO_AVAILABLE_SPOTS} si las matrículas vigentes ya llenan la capacidad
      */
     public void requireFreeSpot(Group group) {
-        if (inForce(group.getId()) >= group.getMaxCapacity()) {
-            throw new BusinessException(ErrorCode.NO_AVAILABLE_SPOTS, HttpStatus.CONFLICT, NO_SPOTS_MESSAGE);
+        if (!hasFreeSpot(group)) {
+            throw noSpotsAvailable();
         }
+    }
+
+    /**
+     * @return el error 409 {@code NO_AVAILABLE_SPOTS}
+     */
+    public static BusinessException noSpotsAvailable() {
+        return new BusinessException(ErrorCode.NO_AVAILABLE_SPOTS, HttpStatus.CONFLICT, NO_SPOTS_MESSAGE);
     }
 
     /**

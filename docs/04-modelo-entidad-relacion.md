@@ -17,7 +17,7 @@ No se usan migraciones versionadas: las entidades JPA mapean este modelo. Por de
 | `disciplines` | Catálogo de disciplinas con nombre (único), descripción, mensualidad y estado. |
 | `groups` | Grupo de entrenamiento, disciplina, entrenador, nombre, capacidad máxima y estado. El nombre físico de la tabla es `groups`, el del MER y el de la base desplegada (decisión del 2026-10-13); se descartó `training_groups`, que el contrato justificaba solo para MySQL 8. |
 | `schedules` | Horarios semanales asociados a un grupo, con día y hora de inicio/fin. |
-| `enrollments` | Matrícula del deportista a un grupo desde un mes de inicio (`period_month`), vigente mes a mes hasta su rechazo o cancelación; incluye estado, estado de pago, rutas de la autorización del acudiente y del certificado médico, notas de revisión, fecha de confirmación, reporte de pago (indicador, fecha y nota) y fecha de creación. Las columnas de documentos aún no se mapean (ver "Cambios pendientes"). |
+| `enrollments` | Matrícula del deportista a un grupo desde un mes de inicio (`period_month`), vigente mes a mes hasta su rechazo o cancelación; incluye estado, estado de pago, rutas de la autorización del acudiente y del certificado médico, notas de revisión, fecha de confirmación, reporte de pago (indicador, fecha y nota) y fecha de creación. Las columnas de documentos no se mapean: la documentación de la matrícula está fuera del alcance actual (decisión del 2026-11-09). |
 | `payment_history` | Historial de pagos asociados a matrícula (varios por matrícula, como máximo uno por mes calendario de `payment_date`), con usuario administrador que registra, monto, fecha, referencia de recibo, notas y creación. |
 | `training_sessions` | Sesiones programadas de grupo, con entrenador, fecha, horarios, estado y notas. |
 | `attendance_records` | Marca de asistencia asociada a sesión y deportista, con fechas de creación y registro; la operación A8 permite sobrescribir marcas de una sesión. |
@@ -57,16 +57,18 @@ Las tablas `tournaments`, `tournament_teams`, `tournament_registrations` y `tour
 - El `period_month` (VARCHAR) se guarda como `YYYY-MM`, de modo que el orden del texto coincide con el cronológico y las consultas de cupos lo comparan directamente.
 - El `period_month` de una matrícula es su mes de inicio. Una matrícula puede tener varios pagos, como máximo uno por mes calendario; el mes que cubre un pago es el de su `payment_date` y el más reciente es el último pago.
 - ~~El sistema no gestiona soportes documentales adjuntos (certificado médico ni autorización del acudiente).~~ **Revocada el 2026-10-19:** la Definición del Proyecto v02 exige validar la autorización del acudiente y el certificado médico (si aplica) en la matrícula. Las columnas `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path` se conservan en el diagrama y deben mapearse cuando se implemente la funcionalidad.
+- **2026-11-09:** la documentación de la matrícula queda fuera del alcance actual; las columnas siguen sin mapearse.
 
 ## Cambios pendientes del diagrama (`MER.pdf`)
 Derivados de la Definición del Proyecto v02 (19/10/2026). Hasta que el diagrama se actualice, esta lista prevalece sobre él:
 1. Retirar `tournaments`, `tournament_teams`, `tournament_registrations` y `tournament_matches` y sus relaciones (`fk_tournament_admin`, `fk_tournament_discipline`, `fk_team_tournament`, `fk_registration_tournament`, etc.).
-2. Conservar `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path`; definir si la validación del administrador requiere columnas adicionales (estado o fecha de validación).
-3. Añadir una tabla para los tokens de recuperación de contraseña (usuario, hash del token, vencimiento, fecha de uso y creación). Su diseño exacto se define junto con el contrato de la recuperación.
-4. Definir si la renovación de la matrícula por periodo requiere cambios en `enrollments`.
+2. Conservar `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path` sin mapear mientras la documentación de la matrícula siga fuera del alcance.
+3. Añadir una tabla para los tokens de recuperación de contraseña (usuario, hash del token, vencimiento, fecha de uso y creación). Su diseño exacto se define junto con el contrato de la recuperación. **2026-11-10:** el equipo creó `password_reset_tokens` en la base desplegada con el diseño propuesto (`id`, `user_id` con `fk_password_reset_token_user`, `token_hash VARCHAR(64)` único, `expires_at`, `used_at` nulable y `created_at`); falta reflejarla en `MER.pdf`. Mapeada el 2026-11-10 (etapa 7) en la entidad `PasswordResetToken`, con la restricción `uk_password_reset_tokens_hash` y el índice `idx_password_reset_tokens_user`.
+4. ~~Definir si la renovación de la matrícula por periodo requiere cambios en `enrollments`.~~ Resuelto el 2026-11-09: no requiere cambios (matrícula continua mes a mes).
+5. Mejora futura: añadir un estado a `athletes` para inactivar perfiles (decisión del 2026-11-09; no se hará en la entrega actual). Su tipo, valores y valor por defecto se definen junto con el contrato y deben agregarse al diagrama antes de mapearse.
 
 ## Discrepancias / verificaciones pendientes
-- Verificar si las notificaciones se persisten antes o después del envío de correo y cómo se registran fallos/reintentos.
+- ~~Verificar si las notificaciones se persisten antes o después del envío de correo y cómo se registran fallos/reintentos.~~ Resuelto el 2026-11-10: se registran `PENDING` antes del primer intento y cada intento actualiza `delivery_status` (`PENDING`, `SENT`, `FAILED`) y `attempts`. `type` guarda el evento (`NotificationType`). La tabla de la base desplegada coincide con el MER (verificado el 2026-11-10).
 - La regla de matrícula duplicada (una sola matrícula vigente por deportista y disciplina) depende del estado y de la disciplina del grupo, por lo que no es una restricción única de columnas: se valida en el servicio de matrículas dentro de la transacción que reserva el cupo.
 - La regla de un pago por mes se deriva del mes de `payment_date`, que no es una columna propia; se valida en el servicio de pagos y no con una restricción única de base de datos.
 - Alineado (2026-10-11): el OpenAPI declara los identificadores como `int32` y los montos como decimales de dos cifras, conforme al MER.

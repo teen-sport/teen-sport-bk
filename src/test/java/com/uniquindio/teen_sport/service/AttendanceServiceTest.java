@@ -3,6 +3,7 @@ package com.uniquindio.teen_sport.service;
 import com.uniquindio.teen_sport.dto.AttendanceMark;
 import com.uniquindio.teen_sport.dto.AttendanceRoster;
 import com.uniquindio.teen_sport.dto.AttendanceRosterEntry;
+import com.uniquindio.teen_sport.dto.GuardianContact;
 import com.uniquindio.teen_sport.dto.RecordAttendanceRequest;
 import com.uniquindio.teen_sport.entity.Athlete;
 import com.uniquindio.teen_sport.entity.AttendanceRecord;
@@ -77,6 +78,17 @@ class AttendanceServiceTest {
         assertThat(failure(() -> service.roster(OTHER_COACH, 1)).getCode()).isEqualTo(ErrorCode.ACCESS_DENIED);
         assertThat(failure(() -> service.roster(GUARDIAN, 1)).getCode()).isEqualTo(ErrorCode.ACCESS_DENIED);
         assertThat(failure(() -> service.roster(ADMIN, 2)).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void rosterShowsTodaysAgeAndTheGuardianContactEvenForAPastSession() {
+        session.reschedule(TODAY.minusYears(1), session.getStartTime(), session.getEndTime());
+        when(enrollmentRepository.findRosterAthletes(7, "2025-10")).thenReturn(List.of(sofia));
+
+        AttendanceRosterEntry entry = service.roster(COACH, 1).records().getFirst();
+
+        assertThat(entry.age()).isEqualTo(14);
+        assertThat(entry.guardian()).isEqualTo(new GuardianContact("Laura", "Ríos", SessionFixtures.GUARDIAN_PHONE));
     }
 
     @Test

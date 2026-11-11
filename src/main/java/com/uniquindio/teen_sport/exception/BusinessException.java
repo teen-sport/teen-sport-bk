@@ -28,6 +28,20 @@ public class BusinessException extends RuntimeException {
     }
 
     /**
+     * Crea la excepción conservando la causa técnica que la originó, para el diagnóstico en logs.
+     *
+     * @param code    código estable del contrato
+     * @param status  estado HTTP que corresponde al caso
+     * @param message mensaje de presentación en español
+     * @param cause   excepción original
+     */
+    public BusinessException(ErrorCode code, HttpStatus status, String message, Throwable cause) {
+        super(message, cause);
+        this.code = code;
+        this.status = status;
+    }
+
+    /**
      * @return código estable del contrato
      */
     public ErrorCode getCode() {

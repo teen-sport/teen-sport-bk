@@ -61,6 +61,7 @@ class EnrollmentLifecycleServiceTest {
     private final GroupRepository groupRepository = mock(GroupRepository.class);
     private final ScheduleRepository scheduleRepository = mock(ScheduleRepository.class);
     private final PaymentHistoryRepository paymentRepository = mock(PaymentHistoryRepository.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
     private EnrollmentLifecycleService service;
     private Discipline football;
 
@@ -71,7 +72,7 @@ class EnrollmentLifecycleServiceTest {
         service = new EnrollmentLifecycleService(enrollmentRepository, groupRepository, accessPolicy,
                 new SpotCounter(enrollmentRepository),
                 new EnrollmentQueryService(enrollmentRepository, scheduleRepository, accessPolicy), calendar,
-                new PaymentRecorder(paymentRepository, mock(UserRepository.class), calendar));
+                new PaymentRecorder(paymentRepository, mock(UserRepository.class), calendar), notificationService);
         football = discipline(3);
     }
 
@@ -86,6 +87,7 @@ class EnrollmentLifecycleServiceTest {
         assertThat(detail.paymentStatus()).isEqualTo(PaymentStatus.OVERDUE);
         assertThat(enrollment.getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);
         verify(groupRepository, never()).findLockedById(any());
+        verify(notificationService).enrollmentConfirmed(enrollment);
     }
 
     @Test
@@ -114,6 +116,7 @@ class EnrollmentLifecycleServiceTest {
         assertThat(failure.getCode()).isEqualTo(ErrorCode.INSUFFICIENT_AMOUNT);
         assertThat(enrollment.getStatus()).isEqualTo(EnrollmentStatus.PENDING_REVIEW);
         verify(paymentRepository, never()).save(any());
+        verify(notificationService, never()).enrollmentConfirmed(any());
     }
 
     @Test
@@ -208,6 +211,7 @@ class EnrollmentLifecycleServiceTest {
         assertThat(detail.status()).isEqualTo(EnrollmentStatus.REJECTED);
         assertThat(detail.reviewNotes()).isEqualTo("Documentos incompletos");
         assertThat(enrollment.getConfirmedAt()).isNull();
+        verify(notificationService).enrollmentRejected(enrollment);
     }
 
     @Test

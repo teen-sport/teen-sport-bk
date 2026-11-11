@@ -45,7 +45,14 @@ JUnit 5, Mockito, Spring Boot Test, MockMvc o WebTestClient según el stack MVC/
 - Dos registros concurrentes con el mismo correo o documento: uno se crea y el otro recibe `409`, nunca `500`.
 - Inicio de sesión con credenciales incorrectas y con cuenta inactiva (RNF-13).
 - Cada deportista queda vinculado a su acudiente; ningún acudiente ve o modifica deportistas ajenos (RNF-12).
-- Recuperación de contraseña (cuando se implemente): token vencido, reutilizado o alterado; misma respuesta para correos existentes e inexistentes.
+- Recuperación de contraseña (U13, U14; `PasswordResetServiceTest`, `PasswordResetIntegrationTest`): token vencido, reutilizado, reemplazado, inventado y de cuenta inactiva; misma respuesta `202` sin cuerpo para correos existentes, inexistentes e inactivos; contraseña débil sin consumir el token; dos restablecimientos simultáneos con el mismo token (uno `204` y otro `422`); en la base solo queda el hash.
+
+### Notificaciones por correo (Entrega 3, etapa 6)
+- Nunca se llama a Brevo real: las pruebas de integración usan `RecordingEmailSender` (en memoria, `@Primary`) y un ejecutor síncrono para `@Async` (`NotificationTestConfiguration`); el adaptador se prueba con `MockRestServiceServer`.
+- Cada evento del catálogo se registra en `notifications` con su estado e intentos; un fallo transitorio se reintenta hasta 3 veces y uno definitivo no se reintenta; un fallo del proveedor no cambia la respuesta HTTP ni revierte la operación.
+- Una operación que falla no envía el correo de éxito; `NO_SPOTS_AVAILABLE` sí se envía tras el rollback de E6.
+- Los datos escritos por usuarios se escapan en el HTML; las cuentas inactivas no reciben correos.
+- Limitación: con el ejecutor síncrono, las pruebas no cubren la concurrencia real del envío asíncrono.
 - Tiempo promedio de inicio de sesión y registro < 3 s (RNF-07).
 
 ### Documentación de la matrícula (Proceso 1, cuando se implemente)

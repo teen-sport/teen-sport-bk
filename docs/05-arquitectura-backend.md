@@ -65,6 +65,7 @@ El prefijo `/api/v1` se aplica en `config/WebConfig` a todos los controladores d
 - La creación de matrícula debe reservar cupo de manera concurrentemente segura.
 - La confirmación, rechazo, cancelación y cambio de grupo deben mantener coherentes estados y capacidad.
 - El envío de correos que dependa de un commit debe ejecutarse después del commit; manejar fallos sin revertir indebidamente la operación ya confirmada.
+- Implementado (2026-11-10): los servicios llaman a `NotificationService`, que publica un `NotificationRequested` dentro de la transacción. `NotificationDispatcher` lo atiende con `@TransactionalEventListener` y `@Async`: después del commit para los avisos de éxito y después del rollback para `NO_SPOTS_AVAILABLE`, que informa de una solicitud rechazada. `NotificationLog` guarda cada estado en una transacción propia (`REQUIRES_NEW`). `integration/EmailSender` es el puerto y `integration/BrevoEmailSender` el adaptador (ADR-09).
 
 ## Observabilidad y configuración
 - Mantener una única configuración general (`application.properties`) y los secretos fuera del repositorio, inyectados mediante variables de entorno.
