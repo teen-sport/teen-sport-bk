@@ -1,8 +1,8 @@
 package com.uniquindio.teen_sport.entity;
 
 /**
- * Eventos que envían un correo (catálogo aprobado el 2026-11-10). Se guardan como texto en
- * {@code notifications.type}.
+ * Eventos que envían un correo (catálogo aprobado el 2026-11-10; {@code PASSWORD_RESET} desde la etapa 7).
+ * Se guardan como texto en {@code notifications.type}.
  */
 public enum NotificationType {
     /** Registro de un acudiente (U2). */
@@ -16,5 +16,7 @@ public enum NotificationType {
     /** Sesiones generadas con aviso a los acudientes (A2 con {@code notify}). */
     SCHEDULE_PUBLISHED,
     /** Sesión reprogramada o cancelada (A5, A6). */
-    SCHEDULE_CHANGE
+    SCHEDULE_CHANGE,
+    /** Enlace de recuperación de contraseña (U13). */
+    PASSWORD_RESET
 }

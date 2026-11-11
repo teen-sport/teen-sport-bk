@@ -10,6 +10,7 @@ import com.uniquindio.teen_sport.entity.RoleName;
 import com.uniquindio.teen_sport.entity.TrainingSession;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.repository.EnrollmentRepository;
+import java.time.Duration;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -94,6 +95,22 @@ class NotificationServiceTest {
         assertThat(event.type()).isEqualTo(NotificationType.NO_SPOTS_AVAILABLE);
         assertThat(event.afterRollback()).isTrue();
         assertThat(event.message().subject()).isEqualTo("Sin cupos disponibles");
+    }
+
+    @Test
+    void thePasswordResetEmailCarriesTheEscapedLinkAndItsValidity() {
+        service.passwordResetRequested(guardian, "https://app.test/reset-password?token=abc_-1&x=<y>",
+                Duration.ofMinutes(30));
+
+        NotificationRequested event = published();
+        assertThat(event.type()).isEqualTo(NotificationType.PASSWORD_RESET);
+        assertThat(event.afterRollback()).isFalse();
+        assertThat(event.message().subject()).isEqualTo("Recuperación de contraseña");
+        assertThat(event.message().htmlContent())
+                .contains("<a href=\"https://app.test/reset-password?token=abc_-1&amp;x=&lt;y&gt;\">")
+                .contains("en los próximos 30 minutos")
+                .contains("sirve una sola vez");
+        assertThat(event.message().toString()).doesNotContain("token");
     }
 
     @Test

@@ -8,8 +8,8 @@ import java.util.Locale;
 import org.springframework.web.util.HtmlUtils;
 
 /**
- * Asunto y cuerpo en español de cada notificación. Los datos variables (nombres, motivos) los escriben
- * los usuarios, así que se escapan antes de insertarlos en el HTML.
+ * Asunto y cuerpo en español de cada notificación. Los datos variables (nombres, motivos, enlaces) se
+ * escapan antes de insertarlos en el HTML.
  *
  * @param subject asunto
  * @param html    cuerpo en HTML
@@ -72,6 +72,14 @@ record NotificationContent(String subject, String html) {
         return of("Sesión cancelada", name,
                 "La sesión del grupo " + escape(group) + " del " + date(date) + " a las " + time(start)
                         + " fue cancelada. Motivo: " + escape(reason));
+    }
+
+    static NotificationContent passwordReset(String name, String link, long validMinutes) {
+        return of("Recuperación de contraseña", name,
+                "Recibimos una solicitud para restablecer la contraseña de tu cuenta de TeenSport. Usa este "
+                        + "enlace en los próximos " + validMinutes + " minutos: <a href=\"" + escape(link)
+                        + "\">Restablecer contraseña</a>. El enlace sirve una sola vez. Si no hiciste la "
+                        + "solicitud, ignora este correo: tu contraseña no cambia.");
     }
 
     /**

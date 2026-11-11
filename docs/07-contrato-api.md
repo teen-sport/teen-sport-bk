@@ -28,7 +28,7 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 - Revisión y ciclo (E12–E15): confirmar, rechazar y cambiar de grupo solo `ADMIN` (`403` antes de validar el cuerpo); cancelar `ADMIN` y el acudiente dueño. E12 y E13 solo desde `PENDING_REVIEW`; E14 y E15 solo con la matrícula vigente; si no, `409 INVALID_STATE`. Un acudiente que cancela una matrícula `ACTIVE` recibe `403 ACCESS_DENIED`. El motivo de E13 y, si se envía, el de E14 se guardan en `reviewNotes`. Cambiar de grupo (E12 con `groupId`, E15) exige un grupo de la misma disciplina (`422 GROUP_OTHER_DISCIPLINE`), activo (`422 GROUP_INACTIVE`) y con cupo (`409 NO_AVAILABLE_SPOTS`), y conserva el mes de inicio; indicar el grupo actual no cambia nada. E12 con `payment` registra el pago con las reglas de E17 en la misma transacción; si el pago no las cumple, no se confirma nada. Los correos de E12 y E13 llegan al final de la Entrega 3 (etapa 6).
 - Sesiones y asistencia (A1–A9, HU39): las sesiones las consultan los tres roles (A3, A4); las programan, reprograman y cancelan `ADMIN` y el entrenador del grupo (A1, A2, A5, A6); la lista de asistencia la ven `ADMIN` y el entrenador del grupo (A7) y solo ese entrenador registra (A8). El entrenador "del grupo" es el actual. Una fecha "pasada" es anterior a hoy en la zona de la academia (hoy se admite) y una sesión "futura" en A8 es la de fecha posterior a hoy. Un grupo no puede tener dos sesiones con la misma fecha y hora de inicio (`409 DUPLICATE_SESSION`); A2 omite las que ya existen. Los rangos de A2 y A3 abarcan como máximo 62 días con ambos extremos; sin fechas, A3 usa la semana actual (lunes a domingo) y con un solo extremo, siete días. Solo las sesiones `SCHEDULED` se reprograman o cancelan (`409 INVALID_STATE`). La lista de A7/A8 son las matrículas `ACTIVE` del grupo iniciadas en el mes de la sesión o antes; A8 exige marcar a todos (`422 INCOMPLETE_ATTENDANCE`), solo a ellos (`422 ATHLETE_NOT_IN_ROSTER`) y una sola vez (`400`); guardar de nuevo reemplaza las marcas y deja la sesión `COMPLETED`. Las marcas de quien sale después de la lista se conservan en A9. El acudiente ve en A3/A4 las sesiones de los grupos de sus deportistas con matrícula `ACTIVE` ya iniciada, con `athletes`. A9 ordena por fecha de sesión descendente. H10 rechaza desactivar un grupo con sesiones `SCHEDULED` de hoy en adelante, y H11 pasa esas sesiones al nuevo entrenador. Los correos `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` llegan al final de la Entrega 3 (etapa 6).
 - Identidad: las operaciones `/users/me` toman al usuario del JWT. Si la cuenta del token ya no existe, responden `401 UNAUTHENTICATED`.
-- Contraseñas: de 8 a 72 caracteres (72 bytes en UTF-8, límite de BCrypt) con al menos una mayúscula, una minúscula, un número y un símbolo. La longitud fuera de rango devuelve `400 VALIDATION_ERROR`; la falta de un tipo de carácter, `422 WEAK_PASSWORD` (U2, U5, U8).
+- Contraseñas: de 8 a 72 caracteres (72 bytes en UTF-8, límite de BCrypt) con al menos una mayúscula, una minúscula, un número y un símbolo. La longitud fuera de rango devuelve `400 VALIDATION_ERROR`; la falta de un tipo de carácter, `422 WEAK_PASSWORD` (U2, U5, U8, U14).
 - Errores: el consumidor debe evaluar `code`; `message` es un mensaje de presentación en español.
 - `401` usa `UNAUTHENTICATED` (token ausente o inválido), `TOKEN_EXPIRED` (token vencido) o `INVALID_CREDENTIALS` (login fallido).
 - `500` usa `INTERNAL_ERROR` con un mensaje genérico en español; nunca expone trazas, SQL ni detalles internos. Aplica a cualquier operación (respuesta `InternalError` en `openapi.yaml`).
@@ -85,6 +85,8 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 | U10 | `PATCH` | `/users/{id}/status` | `updateUserStatus` | Activate or deactivate a user | ADMIN | NOT_FOUND, CANNOT_DEACTIVATE_SELF, COACH_HAS_ACTIVE_GROUPS |
 | U11 | `GET` | `/coaches` | `listCoaches` | List coaches | ADMIN | No se declaran códigos específicos |
 | U12 | `GET` | `/guardians` | `listGuardians` | List guardians (paginated) | ADMIN | No se declaran códigos específicos |
+| U13 | `POST` | `/auth/password-reset/request` | `requestPasswordReset` | Request a password reset link | PUBLIC | VALIDATION_ERROR |
+| U14 | `POST` | `/auth/password-reset/confirm` | `confirmPasswordReset` | Reset the password with the e-mailed token | PUBLIC | VALIDATION_ERROR, INVALID_RESET_TOKEN, WEAK_PASSWORD |
 | U2 | `POST` | `/users/register` | `registerGuardian` | Register a guardian account | PUBLIC | VALIDATION_ERROR, DATA_POLICY_NOT_ACCEPTED, EMAIL_ALREADY_REGISTERED, ID_NUMBER_ALREADY_REGISTERED, WEAK_PASSWORD |
 | U3 | `GET` | `/users/me` | `getMyProfile` | Get the authenticated user's profile | ADMIN, COACH, GUARDIAN | No se declaran códigos específicos |
 | U4 | `PUT` | `/users/me` | `updateMyProfile` | Update the authenticated user's profile | ADMIN, COACH, GUARDIAN | VALIDATION_ERROR |
@@ -230,6 +232,19 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 | `homeAddress` | string | No / no marcado required |
 | `specialty` | string | No / no marcado required |
 | `yearsOfExperience` | integer | No / no marcado required |
+
+### `PasswordResetRequest`
+
+| Campo | Tipo / referencia | Obligatorio |
+|---|---|---|
+| `email` | string (email, máx. 150) | Sí |
+
+### `PasswordResetConfirmRequest`
+
+| Campo | Tipo / referencia | Obligatorio |
+|---|---|---|
+| `token` | string (máx. 100) | Sí |
+| `newPassword` | string (password) | Sí |
 
 ### `ChangePasswordRequest`
 
@@ -611,12 +626,14 @@ Servidor local declarado: `http://localhost:8080/api/v1`.
 
 ## Ampliaciones pendientes del contrato
 Requeridas por los documentos oficiales v02 y aún no declaradas en `openapi.yaml`. Deben diseñarse y aprobarse antes de implementarse:
-- Proceso 3: solicitud de recuperación de contraseña y restablecimiento con token (públicos, bajo `/auth`); se diseña después de la integración de correo.
+- ~~Proceso 3: solicitud de recuperación de contraseña y restablecimiento con token (públicos, bajo `/auth`).~~ Aprobado e incorporado el 2026-11-10 como U13 y U14 (Entrega 3, etapa 7).
 - Proceso 1: consulta consolidada del estado de pago por deportista. Se propone cubrirla con E7 y el filtro `athleteId`, sin endpoint nuevo (pendiente de confirmar).
 
 Descartadas por ahora (2026-11-09): la documentación de la matrícula (fuera del alcance) y la renovación explícita por periodo (se mantiene la matrícula continua).
 
 Mejoras futuras (2026-11-09), sin contrato en la entrega actual: código de error para un token vigente de una cuenta inactivada, e inactivación y reactivación de un deportista (con su efecto en E1–E4 y en las matrículas).
+
+Recuperación de contraseña (Entrega 3, etapa 7, aprobado el 2026-11-10): U13 `POST /auth/password-reset/request` responde siempre `202` sin cuerpo; U14 `POST /auth/password-reset/confirm` responde `204` o `422 INVALID_RESET_TOKEN` / `WEAK_PASSWORD`. Nuevos esquemas `PasswordResetRequest` y `PasswordResetConfirmRequest` y nuevo código `INVALID_RESET_TOKEN`. El correo enlaza a `PASSWORD_RESET_URL?token=...`: la página del frontend lee el token de la URL y lo envía a U14.
 
 Correo (Entrega 3, etapa 6, 2026-11-10): sin cambios de esquemas ni de códigos de respuesta. Se actualizaron las descripciones de U2, E6, E12, E13, A2, A5 y A6 en `openapi.yaml`, que decían "phase 7", con el comportamiento real: el correo se envía después de la operación, fuera de la petición, solo a cuentas activas, y un fallo de envío nunca cambia la respuesta HTTP. A5 solo avisa si cambian la fecha o las horas.
 

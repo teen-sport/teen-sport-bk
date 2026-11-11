@@ -8,6 +8,7 @@ import com.uniquindio.teen_sport.entity.TrainingSession;
 import com.uniquindio.teen_sport.entity.User;
 import com.uniquindio.teen_sport.integration.EmailMessage;
 import com.uniquindio.teen_sport.repository.EnrollmentRepository;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -137,6 +138,19 @@ public class NotificationService {
         notifyGroupGuardians(group, NotificationType.SCHEDULE_CHANGE, guardian ->
                 NotificationContent.sessionCancelled(fullName(guardian), group.getName(), session.getSessionDate(),
                         session.getStartTime(), session.getNotes()));
+    }
+
+    /**
+     * U13: enlace de recuperación de contraseña. El enlace lleva el token en claro: solo viaja en el
+     * correo y no se guarda en {@code notifications}.
+     *
+     * @param user     cuenta que pidió la recuperación
+     * @param link     enlace a la página de restablecimiento, con el token
+     * @param validity vigencia del token
+     */
+    public void passwordResetRequested(User user, String link, Duration validity) {
+        publish(user, NotificationType.PASSWORD_RESET,
+                NotificationContent.passwordReset(fullName(user), link, validity.toMinutes()), false);
     }
 
     private void notifyGroupGuardians(Group group, NotificationType type,

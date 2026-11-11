@@ -49,6 +49,8 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             API_PREFIX + "/auth/login",
+            API_PREFIX + "/auth/password-reset/request",
+            API_PREFIX + "/auth/password-reset/confirm",
             API_PREFIX + "/users/register"
     };
 
