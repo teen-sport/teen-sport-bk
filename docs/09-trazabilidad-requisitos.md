@@ -21,7 +21,7 @@ Esta matriz vincula los procesos de negocio de la Definición del Proyecto (v03,
 | P2 | A1–A6 | Sesiones | SessionController, SessionService, SessionQueryService, SessionSlotPolicy, TrainingSessionRepository | Fechas, cancelación, permisos de entrenador, transiciones de estado | RNF-06, RNF-15 |
 | P2 | A7–A9 | Asistencia | AttendanceController, AttendanceService, AttendanceQueryService, AttendanceRecordRepository, AttendanceMapper | Lista elegible con edad y contacto del acudiente, upsert, sesión futura/cancelada, filtros por propiedad | RNF-05, RNF-06, RNF-10, RNF-15 |
 | P2 | R2–R4 | Indicadores de asistencia | ReportController/AttendanceReportService, RecurrentAbsenceService | Agregaciones, rangos de fecha, aislamiento de datos por rol | RNF-06, RNF-15 |
-| Transversal | MER `notifications` | Notificaciones | NotificationService, adaptador Brevo (al final de la Entrega 3) | Fallos de envío, reintentos, registro de estado y privacidad; confirmar contrato | RNF-14 |
+| Transversal | MER `notifications` | Notificaciones | NotificationService, NotificationDispatcher, NotificationLog, EmailSender/BrevoEmailSender | Envío después del commit, reintentos, registro de estado, fallos definitivos, escape de datos y privacidad | RNF-14 |
 | Transversal | — | Documentación de código | Todo el backend | Medición de cobertura Javadoc | RNF-17 |
 
 Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la matriz.
@@ -72,8 +72,9 @@ Los torneos quedaron fuera del alcance (Definición v02) y no tienen fila en la 
 |---|---|---|---|---|
 | Etapa 2: duplicados concurrentes de cuentas → `409` | U2, U8, U9 | Integrada en `development` (PR #40) | `AccountCreatorTest`, `DuplicateAccountRaceIntegrationTest` (incluye concurrencia), `GuardianRegistrationServiceTest`, `UserAdministrationServiceTest` | RNF-11, RNF-13 |
 | Etapa 3: reportes de matrícula y asistencia | R1, R2, R3, R4 | Integrada en `development` (PR #41) | `EnrollmentReportServiceTest`, `AttendanceReportServiceTest`, `RecurrentAbsenceServiceTest`, `PercentagesTest`, `DateRangePolicyTest`, `ReportIntegrationTest` | RNF-06, RNF-10, RNF-15 |
-| Etapa 4: indicadores del Proceso 3 | R5 | Implementada en `feature/user-indicators-and-attendance-roster` (pendiente de revisión) | `UserReportServiceTest`, `ReportIntegrationTest` | RNF-15 |
-| Etapa 5: ampliación de la lista de asistencia | A7, A8 | Implementada en `feature/user-indicators-and-attendance-roster` (pendiente de revisión) | `AttendanceServiceTest`, `SessionAttendanceIntegrationTest` | RNF-15 |
+| Etapa 4: indicadores del Proceso 3 | R5 | Integrada en `development` (PR #42) | `UserReportServiceTest`, `ReportIntegrationTest` | RNF-15 |
+| Etapa 5: ampliación de la lista de asistencia | A7, A8 | Integrada en `development` (PR #42) | `AttendanceServiceTest`, `SessionAttendanceIntegrationTest` | RNF-15 |
+| Etapa 6: correo y notificaciones | U2, E6, E12, E13, A2, A5, A6; MER `notifications` | Implementada en `feature/email-notifications` (pendiente de revisión) | `NotificationServiceTest`, `NotificationDispatcherTest`, `BrevoEmailSenderTest`, `NotificationIntegrationTest` y las pruebas de los servicios afectados | RNF-14 |
 
 La columna RNF se reasignó el 2026-10-19 según el Plan de Calidad v02: hasta entonces RNF-11 significaba "integridad de datos entre procesos" y se usaba en HU33, HU35, HU36, HU37 y HU39; ahora es "unicidad de cuentas de usuario". La asignación indica qué RNF verifica cada HU, no que su métrica esté cumplida.
 

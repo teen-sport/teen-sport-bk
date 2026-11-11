@@ -39,7 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
  * deportista en la misma disciplina, se serializan y solo una prospera. El grupo se lee con el bloqueo
  * para que su estado no cambie (H10) entre la comprobación y la reserva.</p>
  *
- * <p>Pendiente de la Fase 7: el correo {@code NO_SPOTS_AVAILABLE} cuando no hay cupo.</p>
+ * <p>Sin cupo, el acudiente recibe el correo {@code NO_SPOTS_AVAILABLE}, que se envía después de revertir
+ * la transacción (Entrega 3, etapa 6).</p>
  */
 @Service
 public class EnrollmentService {
@@ -55,6 +56,7 @@ public class EnrollmentService {
     private final SpotCounter spotCounter;
     private final EnrollmentQueryService queryService;
     private final AcademyCalendar calendar;
+    private final NotificationService notificationService;
 
     /**
      * @param enrollmentRepository matrículas
@@ -64,10 +66,12 @@ public class EnrollmentService {
      * @param spotCounter          cálculo de cupos
      * @param queryService         detalle de la matrícula en el formato del contrato
      * @param calendar             fecha de negocio y reloj de la academia
+     * @param notificationService  correo de falta de cupo
      */
     public EnrollmentService(EnrollmentRepository enrollmentRepository, AthleteRepository athleteRepository,
                              GroupRepository groupRepository, AthleteAccessPolicy accessPolicy,
-                             SpotCounter spotCounter, EnrollmentQueryService queryService, AcademyCalendar calendar) {
+                             SpotCounter spotCounter, EnrollmentQueryService queryService, AcademyCalendar calendar,
+                             NotificationService notificationService) {
         this.enrollmentRepository = enrollmentRepository;
         this.athleteRepository = athleteRepository;
         this.groupRepository = groupRepository;
@@ -75,6 +79,7 @@ public class EnrollmentService {
         this.spotCounter = spotCounter;
         this.queryService = queryService;
         this.calendar = calendar;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -102,7 +107,10 @@ public class EnrollmentService {
                 group.getDiscipline().getId(), EnrollmentStatus.IN_FORCE)) {
             throw new BusinessException(ErrorCode.DUPLICATE_ENROLLMENT, HttpStatus.CONFLICT, DUPLICATE_MESSAGE);
         }
-        spotCounter.requireFreeSpot(group);
+        if (!spotCounter.hasFreeSpot(group)) {
+            notificationService.noSpotsAvailable(athlete, group, request.period());
+            throw SpotCounter.noSpotsAvailable();
+        }
         Enrollment enrollment = enrollmentRepository.save(
                 new Enrollment(athlete, group, request.period(), calendar.now()));
         return queryService.detail(enrollment);

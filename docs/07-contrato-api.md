@@ -618,6 +618,8 @@ Descartadas por ahora (2026-11-09): la documentación de la matrícula (fuera de
 
 Mejoras futuras (2026-11-09), sin contrato en la entrega actual: código de error para un token vigente de una cuenta inactivada, e inactivación y reactivación de un deportista (con su efecto en E1–E4 y en las matrículas).
 
+Correo (Entrega 3, etapa 6, 2026-11-10): sin cambios de esquemas ni de códigos de respuesta. Se actualizaron las descripciones de U2, E6, E12, E13, A2, A5 y A6 en `openapi.yaml`, que decían "phase 7", con el comportamiento real: el correo se envía después de la operación, fuera de la petición, solo a cuentas activas, y un fallo de envío nunca cambia la respuesta HTTP. A5 solo avisa si cambian la fecha o las horas.
+
 Aprobados e incorporados a `openapi.yaml` el 2026-11-10 (Entrega 3, etapas 4 y 5):
 - `R5` (`GET /reports/users`, solo `ADMIN`), esquema `UserReport`: `period` obligatorio; cuentas creadas en el mes por rol, cuentas activas e inactivas actuales por rol, acudientes activos con deportistas y `guardianLinkRate` sobre los acudientes activos. `byRole` siempre trae los tres roles.
 - `A7`/`A8`: `AttendanceRosterEntry` añade `age` (edad a la fecha actual de la academia) y `guardian` (`GuardianContact`: nombres, apellidos y teléfono, este último nulable porque `users.phone` lo es en el MER). Cambio incompatible para el cliente: el frontend debe leer los campos nuevos.

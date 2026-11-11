@@ -70,7 +70,7 @@
 - `A7`: consultar lista de deportistas elegibles para asistencia de una sesión. Incluye la edad del deportista (a la fecha actual de la academia, no a la de la sesión) y el contacto del acudiente (nombres, apellidos y teléfono) para emergencias (decisión del 2026-11-09). **Ampliación implementada (2026-11-10), pendiente de revisión**; A8 devuelve la misma lista.
 - `A8`: registrar la asistencia completa del grupo en una sola llamada; guardar de nuevo sobrescribe marcas anteriores (upsert). La sesión pasa a `COMPLETED`; no se puede registrar asistencia en una sesión futura o cancelada.
 - `A9`: consultar historial paginado de asistencia; administradores ven todo, entrenadores sus grupos y acudientes sus deportistas.
-- Notificación de horarios y novedades a los acudientes por correo: al final de la Entrega 3.
+- Notificación de horarios y novedades a los acudientes por correo (Entrega 3, etapa 6): `SCHEDULE_PUBLISHED` en A2 con `notify` y `SCHEDULE_CHANGE` en A5 (si cambian la fecha o las horas) y A6. **Implementado (2026-11-10), pendiente de revisión.**
 
 ### Indicadores del Proceso 2
 Entrega 3, etapa 3. **Implementados (2026-11-10), pendientes de revisión.** Reglas de fechas y alcance en `docs/10-plan-implementacion.md`, etapa 3.
@@ -91,8 +91,13 @@ Entrega 3, etapa 3. **Implementados (2026-11-10), pendientes de revisión.** Reg
 
 Resueltas en la v03 (9/11/2026): la meta de notificaciones de 80 % frente a 95 %, los títulos de torneos en la tabla de contenido del Plan y las menciones de torneos en `ReportController` y `ReportService` del SAD.
 
+## Notificaciones por correo (decisiones del 2026-11-10, Entrega 3, etapa 6)
+- Catálogo: `ACCOUNT_REGISTERED` (U2), `ENROLLMENT_CONFIRMED` (E12), `ENROLLMENT_REJECTED` (E13, con el motivo), `NO_SPOTS_AVAILABLE` (E6), `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6). La recuperación de contraseña se añade en la etapa 7.
+- Destinatarios: el acudiente del deportista; en los avisos de horarios, cada acudiente activo con algún deportista en matrícula `ACTIVE` en el grupo, una sola vez. Las cuentas inactivas no reciben correos.
+- Ciclo de vida en `notifications`: se registra `PENDING` sin intentos después del commit (o del rollback, en `NO_SPOTS_AVAILABLE`); se envía fuera de la petición y queda `SENT` cuando Brevo acepta el correo o `FAILED` tras un error definitivo o 3 intentos. `attempts` guarda los intentos hechos.
+- **Implementado (2026-11-10), pendiente de revisión.**
+
 ## Pendientes de definición
-- Catálogo de eventos de notificación, persistencia en `notifications`, reintentos y relación entre notificación y envío de correo: se define al llegar a la Entrega 3, etapa 6.
 - Versión de la política de datos aceptada: se decide al final del desarrollo; hoy solo se guarda la aceptación y su fecha.
 
 ## Tratamiento de datos de menores (decisiones del 2026-11-09)

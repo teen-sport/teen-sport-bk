@@ -3,6 +3,7 @@ package com.uniquindio.teen_sport.repository;
 import com.uniquindio.teen_sport.entity.Athlete;
 import com.uniquindio.teen_sport.entity.Enrollment;
 import com.uniquindio.teen_sport.entity.EnrollmentStatus;
+import com.uniquindio.teen_sport.entity.User;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
@@ -211,4 +212,20 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
      */
     boolean existsByAthleteIdAndGroupCoachIdAndStatusIn(Integer athleteId, Integer coachId,
                                                          Collection<EnrollmentStatus> statuses);
+
+    /**
+     * Destinatarios de los avisos de horarios (A2, A5, A6): las cuentas activas de los acudientes con
+     * algún deportista en matrícula {@code ACTIVE} en el grupo, una vez cada una.
+     *
+     * @param groupId id del grupo
+     * @return las cuentas, ordenadas por id
+     */
+    @Query("""
+            select distinct u from Enrollment e join e.athlete a join a.guardian g join g.user u
+            where e.group.id = :groupId
+              and e.status = com.uniquindio.teen_sport.entity.EnrollmentStatus.ACTIVE
+              and u.status = com.uniquindio.teen_sport.entity.EntityStatus.ACTIVE
+            order by u.id
+            """)
+    List<User> findActiveGuardianAccounts(@Param("groupId") Integer groupId);
 }

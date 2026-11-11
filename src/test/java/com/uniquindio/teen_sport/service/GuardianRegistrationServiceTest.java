@@ -41,6 +41,7 @@ class GuardianRegistrationServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final GuardianRepository guardianRepository = mock(GuardianRepository.class);
     private final RoleRepository roleRepository = mock(RoleRepository.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(4);
     private GuardianRegistrationService service;
 
@@ -49,7 +50,8 @@ class GuardianRegistrationServiceTest {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         AccountCreator accountCreator = new AccountCreator(userRepository, roleRepository, passwordEncoder,
                 new PasswordPolicy(), new AccountConflictLookup(userRepository), clock);
-        service = new GuardianRegistrationService(accountCreator, guardianRepository, new UserProfileMapper(), clock);
+        service = new GuardianRegistrationService(accountCreator, guardianRepository, new UserProfileMapper(), clock,
+                notificationService);
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(roleRepository.findByName(RoleName.GUARDIAN))
                 .thenReturn(Optional.of(new Role(RoleName.GUARDIAN, "Acudiente")));
@@ -82,6 +84,7 @@ class GuardianRegistrationServiceTest {
         assertThat(profile.acceptedDataPolicy()).isTrue();
         assertThat(profile.guardian()).isNotNull();
         assertThat(profile.coach()).isNull();
+        verify(notificationService).accountRegistered(user);
     }
 
     @Test
@@ -91,6 +94,7 @@ class GuardianRegistrationServiceTest {
         assertThat(ex.getCode()).isEqualTo(ErrorCode.DATA_POLICY_NOT_ACCEPTED);
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
         verify(userRepository, never()).save(any());
+        verify(notificationService, never()).accountRegistered(any());
     }
 
     @Test

@@ -14,7 +14,8 @@ import org.springframework.context.annotation.Import;
  *
  * <p>Todas las pruebas que la usan comparten la misma configuración y, por tanto, un único
  * contexto y un único contenedor. Las propiedades son solo de prueba: un secreto JWT ficticio,
- * el administrador inicial de {@link TestAccounts} y la creación del esquema en el contenedor. Como la base de datos se comparte entre
+ * el administrador inicial de {@link TestAccounts}, la creación del esquema en el contenedor y el
+ * correo en memoria de {@link NotificationTestConfiguration}, que nunca llama a Brevo. Como la base de datos se comparte entre
  * clases, cada prueba crea sus datos con valores únicos.</p>
  */
 @Target(ElementType.TYPE)
@@ -26,9 +27,11 @@ import org.springframework.context.annotation.Import;
         "app.bootstrap.admin.password=" + TestAccounts.ADMIN_PASSWORD,
         "app.bootstrap.admin.id-number=" + TestAccounts.ADMIN_ID_NUMBER,
         // El contenedor arranca vacío: las pruebas sí deben crear el esquema a partir de las entidades.
-        "spring.jpa.hibernate.ddl-auto=update"
+        "spring.jpa.hibernate.ddl-auto=update",
+        // Reintentos sin espera: las pruebas no deben dormir.
+        "app.notifications.retry-delay=0s"
 })
 @AutoConfigureMockMvc
-@Import(PostgresTestcontainersConfiguration.class)
+@Import({PostgresTestcontainersConfiguration.class, NotificationTestConfiguration.class})
 public @interface IntegrationTest {
 }

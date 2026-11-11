@@ -135,9 +135,9 @@ Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo i
 | 1 | Cierre de HU39 | A1–A9 | No | Hecho (2026-11-09) |
 | 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Hecho (PR #40) |
 | 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Hecho (PR #41) |
-| 4 | Indicadores del Proceso 3 | R5 | Sí (aprobado el 2026-11-10) | Implementada (pendiente de revisión) |
-| 5 | Ampliación de la lista de asistencia | A7, A8 | Sí (aprobado el 2026-11-10) | Implementada (pendiente de revisión) |
-| 6 | Correo y notificaciones | MER `notifications` | Sí | Pendiente (al final) |
+| 4 | Indicadores del Proceso 3 | R5 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #42) |
+| 5 | Ampliación de la lista de asistencia | A7, A8 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #42) |
+| 6 | Correo y notificaciones | MER `notifications`; U2, E6, E12, E13, A2, A5, A6 | Sí (aprobado el 2026-11-10) | Implementada en `feature/email-notifications` (pendiente de revisión) |
 | 7 | Recuperación de contraseña | Nuevos, bajo `/auth` | Sí, más tabla en el MER | Pendiente (al final) |
 | 8 | Calidad y despliegue | Transversal | No | Pendiente (cierre) |
 
@@ -217,6 +217,8 @@ Cierre de las etapas 4 y 5: `./gradlew check` el 2026-11-10 con PostgreSQL 18.6 
 - Definir el ciclo de vida en `notifications` (persistencia antes o después del envío, estado, intentos).
 - `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit, reintentos y registro de fallos sin afirmar envíos no confirmados.
 - Pruebas con el proveedor simulado y medición de RNF-14 (≥ 95 %).
+- **Estado (2026-11-10): implementada, pendiente de revisión.** Catálogo aprobado: `ACCOUNT_REGISTERED`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`, `NO_SPOTS_AVAILABLE`, `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` (la recuperación de contraseña llega en la etapa 7). Ciclo de vida: `PENDING` después del commit (o del rollback en E6), envío asíncrono y `SENT` o `FAILED`, con hasta 3 intentos para fallos transitorios. Adaptador con `RestClient` en lugar del SDK (ADR-09 actualizado). `./gradlew check`: 448 pruebas sin fallos; cobertura JaCoCo 99,4 % de líneas y 96,1 % de ramas.
+- Limitaciones: los reintentos viven en memoria y se pierden si la aplicación se reinicia; no hay reenvío programado de las notificaciones `FAILED`; RNF-14 solo puede medirse con envíos reales en el despliegue.
 
 ### Etapa 7 — Recuperación de contraseña (al final, después del correo)
 - Contrato de solicitud y restablecimiento (públicos, bajo `/auth`) y tabla de tokens en el MER (usuario, hash del token, vencimiento, fecha de uso y creación).

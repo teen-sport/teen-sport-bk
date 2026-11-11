@@ -32,7 +32,8 @@ Los listados deben filtrar automáticamente por propiedad en backend; no basta c
 - Minimizar los campos devueltos por cada DTO.
 - Evitar exponer información médica, documentos o direcciones salvo necesidad autorizada. Los documentos de la matrícula (autorización del acudiente y certificado médico) solo pueden consultarlos el acudiente dueño y el administrador.
 - Validar y conservar la aceptación de la política de tratamiento de datos según requisitos.
-- No enviar a Brevo más información que la necesaria para el correo.
+- No enviar a Brevo más información que la necesaria para el correo. Implementado: a Brevo solo van el correo y el nombre del destinatario, el asunto y el cuerpo; los datos variables escritos por usuarios (nombres, motivos) se escapan en el HTML. `notifications` guarda tipo, asunto, estado e intentos, sin la dirección ni el cuerpo. Los logs de envío solo incluyen el id de la notificación, el tipo y el código de error del proveedor. Las cuentas inactivas no reciben correos.
+- La clave de Brevo (`BREVO_API_KEY`) solo vive en variables de entorno; `BrevoProperties.toString()` y `EmailMessage.toString()` no muestran la clave ni las direcciones.
 - No usar datos reales de menores en pruebas compartidas o ejemplos.
 - La revisión técnica no reemplaza la validación legal de cumplimiento de la Ley 1581 de 2012.
 - Decisiones del 2026-11-09: la autorización del acudiente en U2 cubre a todos sus deportistas; la supresión se atenderá inactivando el perfil, como mejora futura; el entrenador ve la edad y el contacto del acudiente solo de los deportistas de sus grupos; la auditoría de consultas a datos de menores queda como posible implementación futura.
