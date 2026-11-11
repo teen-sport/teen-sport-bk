@@ -38,7 +38,8 @@ class PasswordResetIntegrationTest {
     private static final String REQUEST = "/api/v1/auth/password-reset/request";
     private static final String CONFIRM = "/api/v1/auth/password-reset/confirm";
     private static final String NEW_PASSWORD = "Recuperada#2026";
-    private static final Pattern TOKEN_IN_LINK = Pattern.compile("reset-password\\?token=([A-Za-z0-9_-]+)\"");
+    /** Solo el parámetro del enlace: la ruta de la página la decide PASSWORD_RESET_URL, no la prueba. */
+    private static final Pattern TOKEN_IN_LINK = Pattern.compile("href=\"[^\"?]+\\?token=([A-Za-z0-9_-]+)\"");
 
     @Autowired
     private MockMvc mockMvc;

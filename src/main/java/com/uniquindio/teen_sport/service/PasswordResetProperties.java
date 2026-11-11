@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Recuperación de contraseña ({@code app.password-reset.*}).
  *
  * @param url           página del frontend que recibe el token; el correo enlaza a {@code url?token=...}
- * @param tokenValidity vigencia de cada token (aprobada en 30 minutos)
+ * @param tokenValidity vigencia de cada token (aprobada en 20 minutos)
  */
 @ConfigurationProperties("app.password-reset")
 public record PasswordResetProperties(String url, Duration tokenValidity) {

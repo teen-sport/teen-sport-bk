@@ -89,7 +89,7 @@ paths:
       description: |
         **Roles:** public. Always answers 202 with no body, whether or not the e-mail belongs to an account and whether the
         account is active, so the answer does not reveal registered e-mails. Only for an active account: invalidates its
-        previous reset links, creates a single-use token valid for 30 minutes (stored only as a SHA-256 hash) and, after commit,
+        previous reset links, creates a single-use token valid for 20 minutes (stored only as a SHA-256 hash) and, after commit,
         sends the `PASSWORD_RESET` e-mail (not awaited) with the link `{PASSWORD_RESET_URL}?token={token}`.
       x-endpoint-id: U13
       x-roles: [PUBLIC]

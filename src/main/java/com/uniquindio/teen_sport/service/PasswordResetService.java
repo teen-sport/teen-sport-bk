@@ -30,7 +30,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * <ul>
  *   <li>La solicitud responde igual exista o no el correo y esté o no activa la cuenta. Solo una cuenta
  *       activa recibe el token, y el correo se envía después del commit, fuera de la petición.</li>
- *   <li>El token es aleatorio (256 bits), vale 30 minutos y una sola vez. Se guarda solo su hash SHA-256;
+ *   <li>El token es aleatorio (256 bits), vale 20 minutos y una sola vez. Se guarda solo su hash SHA-256;
  *       el token en claro solo viaja en el enlace del correo.</li>
  *   <li>Una solicitud nueva invalida los tokens anteriores de la cuenta; un restablecimiento, todos los
  *       demás.</li>
