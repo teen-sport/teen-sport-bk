@@ -63,12 +63,12 @@ Las tablas `tournaments`, `tournament_teams`, `tournament_registrations` y `tour
 Derivados de la Definición del Proyecto v02 (19/10/2026). Hasta que el diagrama se actualice, esta lista prevalece sobre él:
 1. Retirar `tournaments`, `tournament_teams`, `tournament_registrations` y `tournament_matches` y sus relaciones (`fk_tournament_admin`, `fk_tournament_discipline`, `fk_team_tournament`, `fk_registration_tournament`, etc.).
 2. Conservar `enrollments.medical_certificate_path` y `enrollments.guardian_authorization_path` sin mapear mientras la documentación de la matrícula siga fuera del alcance.
-3. Añadir una tabla para los tokens de recuperación de contraseña (usuario, hash del token, vencimiento, fecha de uso y creación). Su diseño exacto se define junto con el contrato de la recuperación.
+3. Añadir una tabla para los tokens de recuperación de contraseña (usuario, hash del token, vencimiento, fecha de uso y creación). Su diseño exacto se define junto con el contrato de la recuperación. **2026-11-10:** el equipo creó `password_reset_tokens` en la base desplegada con el diseño propuesto (`id`, `user_id` con `fk_password_reset_token_user`, `token_hash VARCHAR(64)` único, `expires_at`, `used_at` nulable y `created_at`); falta reflejarla en `MER.pdf`. Se mapea en la etapa 7.
 4. ~~Definir si la renovación de la matrícula por periodo requiere cambios en `enrollments`.~~ Resuelto el 2026-11-09: no requiere cambios (matrícula continua mes a mes).
 5. Mejora futura: añadir un estado a `athletes` para inactivar perfiles (decisión del 2026-11-09; no se hará en la entrega actual). Su tipo, valores y valor por defecto se definen junto con el contrato y deben agregarse al diagrama antes de mapearse.
 
 ## Discrepancias / verificaciones pendientes
-- Verificar si las notificaciones se persisten antes o después del envío de correo y cómo se registran fallos/reintentos.
+- ~~Verificar si las notificaciones se persisten antes o después del envío de correo y cómo se registran fallos/reintentos.~~ Resuelto el 2026-11-10: se registran `PENDING` antes del primer intento y cada intento actualiza `delivery_status` (`PENDING`, `SENT`, `FAILED`) y `attempts`. `type` guarda el evento (`NotificationType`). La tabla de la base desplegada coincide con el MER (verificado el 2026-11-10).
 - La regla de matrícula duplicada (una sola matrícula vigente por deportista y disciplina) depende del estado y de la disciplina del grupo, por lo que no es una restricción única de columnas: se valida en el servicio de matrículas dentro de la transacción que reserva el cupo.
 - La regla de un pago por mes se deriva del mes de `payment_date`, que no es una columna propia; se valida en el servicio de pagos y no con una restricción única de base de datos.
 - Alineado (2026-10-11): el OpenAPI declara los identificadores como `int32` y los montos como decimales de dos cifras, conforme al MER.

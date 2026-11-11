@@ -21,6 +21,7 @@ import com.uniquindio.teen_sport.validation.DateRangePolicy;
 import com.uniquindio.teen_sport.validation.TextNormalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -40,8 +41,9 @@ import org.springframework.transaction.annotation.Transactional;
  * después la sesión; cancelar solo la sesión. El orden grupo y luego sesión es el mismo de H11, que
  * traspasa las sesiones futuras bajo el bloqueo del grupo.</p>
  *
- * <p>Los correos {@code SCHEDULE_PUBLISHED} (A2 con {@code notify}) y {@code SCHEDULE_CHANGE} (A5, A6)
- * llegan con el adaptador de correo (Fase 7).</p>
+ * <p>Correos a los acudientes del grupo, después del commit: {@code SCHEDULE_PUBLISHED} en A2 con
+ * {@code notify} si se creó alguna sesión, y {@code SCHEDULE_CHANGE} en A6 y en A5 cuando cambian la fecha
+ * o las horas (cambiar solo las notas no avisa).</p>
  */
 @Service
 public class SessionService {
@@ -57,22 +59,25 @@ public class SessionService {
     private final TrainingSessionRepository sessionRepository;
     private final GroupAccessPolicy accessPolicy;
     private final SessionSlotPolicy slotPolicy;
+    private final NotificationService notificationService;
 
     /**
      * @param groupRepository    grupos
      * @param scheduleRepository franjas
      * @param sessionRepository  sesiones
      * @param accessPolicy       regla de propiedad de los grupos
-     * @param slotPolicy         reglas de fecha y hora
+     * @param slotPolicy          reglas de fecha y hora
+     * @param notificationService correos de horarios a los acudientes
      */
     public SessionService(GroupRepository groupRepository, ScheduleRepository scheduleRepository,
                           TrainingSessionRepository sessionRepository, GroupAccessPolicy accessPolicy,
-                          SessionSlotPolicy slotPolicy) {
+                          SessionSlotPolicy slotPolicy, NotificationService notificationService) {
         this.groupRepository = groupRepository;
         this.scheduleRepository = scheduleRepository;
         this.sessionRepository = sessionRepository;
         this.accessPolicy = accessPolicy;
         this.slotPolicy = slotPolicy;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -127,7 +132,11 @@ public class SessionService {
         List<TrainingSession> created = planned.stream()
                 .filter(session -> !taken.contains(session.getSessionDate().atTime(session.getStartTime())))
                 .toList();
-        List<SessionResponse> sessions = sessionRepository.saveAll(created).stream()
+        List<TrainingSession> saved = sessionRepository.saveAll(created);
+        if (Boolean.TRUE.equals(request.notifyGuardians())) {
+            notificationService.schedulePublished(group, saved);
+        }
+        List<SessionResponse> sessions = saved.stream()
                 .map(SessionMapper::toResponse)
                 .toList();
         return new GenerateSessionsResponse(sessions.size(), planned.size() - sessions.size(), sessions);
@@ -153,8 +162,15 @@ public class SessionService {
         requireScheduled(session);
         slotPolicy.requireValidSlot(request.date(), request.startTime(), request.endTime());
         slotPolicy.requireFree(groupId, request.date(), request.startTime(), sessionId);
+        LocalDate previousDate = session.getSessionDate();
+        LocalTime previousStart = session.getStartTime();
+        boolean moved = !previousDate.equals(request.date()) || !previousStart.equals(request.startTime())
+                || !session.getEndTime().equals(request.endTime());
         session.reschedule(request.date(), request.startTime(), request.endTime());
         session.setNotes(TextNormalizer.trimToNull(request.notes()));
+        if (moved) {
+            notificationService.sessionRescheduled(session, previousDate, previousStart);
+        }
         return SessionMapper.toResponse(session);
     }
 
@@ -175,6 +191,7 @@ public class SessionService {
         requireScheduled(session);
         session.setNotes(reason.trim());
         session.setStatus(SessionStatus.CANCELLED);
+        notificationService.sessionCancelled(session);
         return SessionMapper.toResponse(session);
     }
 

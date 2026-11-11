@@ -26,7 +26,7 @@ La fuente normativa de valores, fórmulas y criterios de aceptación es el Plan 
 
 Notas:
 - RNF-07 y RNF-11 a RNF-14 se redefinieron en la versión 02 al reemplazar el antiguo proceso de torneos; las metas anteriores (operación de torneos, integridad entre procesos, consistencia de resultados) quedan sin efecto.
-- RNF-14 depende del adaptador de correo, planificado para el final de la Entrega 3; no se puede declarar su cumplimiento sin envíos reales medidos.
+- RNF-14 depende del adaptador de correo, implementado el 2026-11-10 (Entrega 3, etapa 6); no se puede declarar su cumplimiento sin envíos reales medidos. La medición sale de `notifications`: notificaciones `SENT` sobre el total de `ACCOUNT_REGISTERED` (y, desde la etapa 7, de recuperación de contraseña).
 
 ## Métricas del proceso de desarrollo (Plan, sección 3.3)
 - Por módulo: defectos por módulo (Jira), cobertura de pruebas (JaCoCo), casos de prueba superados y cumplimiento de entregables.

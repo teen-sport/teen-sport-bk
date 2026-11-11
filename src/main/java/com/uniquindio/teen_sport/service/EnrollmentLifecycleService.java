@@ -40,8 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
  * pierde solo libera un cupo.</p>
  *
  * <p>E12 puede registrar un pago en la misma transacción, con las mismas reglas que E17
- * ({@link PaymentRecorder}). Pendientes: los correos {@code ENROLLMENT_CONFIRMED} y
- * {@code ENROLLMENT_REJECTED} (Fase 7).</p>
+ * ({@link PaymentRecorder}). Confirmar y rechazar envían al acudiente los correos
+ * {@code ENROLLMENT_CONFIRMED} y {@code ENROLLMENT_REJECTED} después del commit.</p>
  */
 @Service
 public class EnrollmentLifecycleService {
@@ -56,6 +56,7 @@ public class EnrollmentLifecycleService {
     private final EnrollmentQueryService queryService;
     private final AcademyCalendar calendar;
     private final PaymentRecorder paymentRecorder;
+    private final NotificationService notificationService;
 
     /**
      * @param enrollmentRepository matrículas
@@ -65,11 +66,12 @@ public class EnrollmentLifecycleService {
      * @param queryService         detalle de la matrícula en el formato del contrato
      * @param calendar             reloj de la academia
      * @param paymentRecorder      registro del pago opcional de E12
+     * @param notificationService  correos de confirmación y rechazo
      */
     public EnrollmentLifecycleService(EnrollmentRepository enrollmentRepository, GroupRepository groupRepository,
                                       AthleteAccessPolicy accessPolicy, SpotCounter spotCounter,
                                       EnrollmentQueryService queryService, AcademyCalendar calendar,
-                                      PaymentRecorder paymentRecorder) {
+                                      PaymentRecorder paymentRecorder, NotificationService notificationService) {
         this.enrollmentRepository = enrollmentRepository;
         this.groupRepository = groupRepository;
         this.accessPolicy = accessPolicy;
@@ -77,6 +79,7 @@ public class EnrollmentLifecycleService {
         this.queryService = queryService;
         this.calendar = calendar;
         this.paymentRecorder = paymentRecorder;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -107,6 +110,7 @@ public class EnrollmentLifecycleService {
         }
         enrollment.setStatus(EnrollmentStatus.ACTIVE);
         enrollment.setConfirmedAt(calendar.now());
+        notificationService.enrollmentConfirmed(enrollment);
         return queryService.detail(enrollment);
     }
 
@@ -124,6 +128,7 @@ public class EnrollmentLifecycleService {
         EnrollmentStatePolicy.requirePending(enrollment);
         enrollment.setStatus(EnrollmentStatus.REJECTED);
         enrollment.setReviewNotes(reason.trim());
+        notificationService.enrollmentRejected(enrollment);
         return queryService.detail(enrollment);
     }
 

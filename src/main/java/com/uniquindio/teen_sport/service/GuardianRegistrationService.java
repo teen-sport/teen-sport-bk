@@ -20,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Crea la cuenta ({@code users}, rol {@code GUARDIAN}) y su perfil ({@code guardians}) en una
  * sola transacción. Exige aceptar la política de tratamiento de datos (Ley 1581 de 2012) y guarda
- * el momento de la aceptación.</p>
+ * el momento de la aceptación. Al confirmarse, el acudiente recibe el correo de bienvenida
+ * {@code ACCOUNT_REGISTERED}.</p>
  */
 @Service
 public class GuardianRegistrationService {
@@ -31,19 +32,23 @@ public class GuardianRegistrationService {
     private final GuardianRepository guardianRepository;
     private final UserProfileMapper profileMapper;
     private final Clock clock;
+    private final NotificationService notificationService;
 
     /**
      * @param accountCreator     creación de cuentas con las reglas comunes
      * @param guardianRepository perfiles de acudiente
      * @param profileMapper      salida pública del perfil
-     * @param clock              reloj de la aplicación
+     * @param clock               reloj de la aplicación
+     * @param notificationService correo de bienvenida
      */
     public GuardianRegistrationService(AccountCreator accountCreator, GuardianRepository guardianRepository,
-                                       UserProfileMapper profileMapper, Clock clock) {
+                                       UserProfileMapper profileMapper, Clock clock,
+                                       NotificationService notificationService) {
         this.accountCreator = accountCreator;
         this.guardianRepository = guardianRepository;
         this.profileMapper = profileMapper;
         this.clock = clock;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -65,6 +70,7 @@ public class GuardianRegistrationService {
 
         Guardian guardian = guardianRepository.save(
                 new Guardian(user, TextNormalizer.trimToNull(request.homeAddress())));
+        notificationService.accountRegistered(user);
         return profileMapper.toProfile(user, guardian, null);
     }
 }

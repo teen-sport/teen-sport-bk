@@ -43,7 +43,7 @@ Incluye, según la Definición del Proyecto y el SAD:
 ### Estado de la entrega actual (Entrega 3)
 - Desarrollados: Procesos 1, 2 y 3 en sus operaciones principales (HU28–HU39 integradas en `development`).
 - Nota de alcance de los documentos oficiales (Definición v03, SAD v03 y Plan de Calidad): el envío de correos/notificaciones (Brevo), la recuperación de contraseña, la creación de administradores desde la interfaz y la generación de reportes quedan planificados para la tercera entrega; siguen siendo parte del alcance del proyecto.
-- Estamos en la tercera entrega: los reportes (R1–R4 e indicadores del Proceso 3), el adaptador Brevo con las notificaciones y la recuperación de contraseña están en el alcance actual. El correo y la recuperación de contraseña se hacen al final. La creación de administradores ya existe en la API (U8); la nota se refiere a la interfaz.
+- Estamos en la tercera entrega: los reportes (R1–R4 e indicadores del Proceso 3), el adaptador Brevo con las notificaciones y la recuperación de contraseña están en el alcance actual. El correo y la recuperación de contraseña se hacen al final. La creación de administradores ya existe en la API (U8); la nota se refiere a la interfaz. El adaptador Brevo y las notificaciones se implementaron el 2026-11-10 (etapa 6); falta la recuperación de contraseña (etapa 7).
 - El orden del trabajo restante está en `10-plan-implementacion.md`, sección "Entrega 3".
 - Mientras no exista el correo, las funcionalidades que dependan del correo deben dejar definido su punto de notificación sin simular envíos.
 
