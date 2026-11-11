@@ -1,6 +1,6 @@
 # 02. Requisitos funcionales
 
-> Esta lista se organiza por los tres procesos de negocio de la Definición del Proyecto (v02) y resume el comportamiento que se desprende de esos documentos y del OpenAPI. Los identificadores `x-endpoint-id` se conservan como trazabilidad del contrato. Los requisitos marcados **Pendiente de implementar** los exigen los documentos oficiales pero aún no existen en el contrato ni en el código.
+> Esta lista se organiza por los tres procesos de negocio de la Definición del Proyecto (v03, 9/11/2026) y resume el comportamiento que se desprende de esos documentos y del OpenAPI. Los identificadores `x-endpoint-id` se conservan como trazabilidad del contrato. Los requisitos marcados **Pendiente de implementar** los exigen los documentos oficiales pero aún no existen en el contrato ni en el código.
 
 ## Proceso 3 — Registro, autenticación y gestión de usuarios
 
@@ -10,21 +10,22 @@
 - `U3–U5`: consultar/actualizar perfil propio y cambiar contraseña; no permitir cambiar correo, documento o rol mediante la actualización del perfil. La actualización es un reemplazo completo: los campos de otro rol se ignoran y un campo opcional del rol no enviado queda vacío. El cambio de contraseña exige la contraseña actual; los tokens ya emitidos siguen vigentes hasta su vencimiento.
 - `U6–U12`: administración de usuarios, consulta individual, creación de personal, cambio de estado, listado de entrenadores y acudientes. Un administrador no puede desactivar su propia cuenta; la edición no cambia el rol ni el documento y conserva el correo si no se envía uno nuevo. La activación e inactivación (U10) aplica a cuentas de cualquier rol, incluidos los acudientes.
 - Los roles `COACH` y `ADMIN` los crea un administrador; el registro público está limitado a acudientes.
-- Unicidad: el documento de identidad y el correo deben ser únicos (RNF-11). Un intento duplicado, incluso concurrente, debe rechazarse con un error controlado (`409`), nunca con `500`.
+- Unicidad: el documento de identidad y el correo deben ser únicos (RNF-11). Un intento duplicado, incluso concurrente, se rechaza con un error controlado (`409 EMAIL_ALREADY_REGISTERED` o `409 ID_NUMBER_ALREADY_REGISTERED`), nunca con `500` (desde la Entrega 3, etapa 2).
 - Cierre de sesión: el frontend descarta el token; el backend no mantiene sesiones.
-- **Pendiente de implementar — Recuperación de contraseña por correo** (Definición P3, SAD 1.3–1.4, ADR-07): solicitar la recuperación con el correo y restablecer la contraseña con un token de un solo uso y vigencia limitada. La respuesta de la solicitud no debe revelar si el correo existe. La nueva contraseña cumple la misma política que el registro. Requiere contrato en OpenAPI, tabla en el MER y el envío por correo (ver ADR-009).
-- **Pendiente de implementar — Rechazo de cuentas inactivas con token vigente**: una cuenta inactivada no debe poder seguir operando con un token emitido antes de la inactivación (Plan de Calidad 3.3.3, "casos de acceso al sistema"; RNF-13).
-- **Pendiente de implementar — Notificación de registro exitoso** por correo (salida del P3; RNF-14). Fuera de esta entrega; se integra con el adaptador de correo.
+- **Implementado (2026-11-10, Entrega 3, etapa 7), pendiente de revisión — Recuperación de contraseña por correo (U13, U14)** (Definición P3, SAD 1.3–1.4, ADR-07; se construye después de la integración de correo, decisión del 2026-11-09): solicitar la recuperación con el correo y restablecer la contraseña con un token de un solo uso y vigencia limitada. La respuesta de la solicitud no debe revelar si el correo existe. La nueva contraseña cumple la misma política que el registro. Requiere contrato en OpenAPI, tabla en el MER y el envío por correo (ver ADR-009). Decisiones del 2026-11-10: el token vale 20 minutos y una sola vez (ajustado de 30 a 20 minutos el 2026-11-11); una solicitud nueva invalida los enlaces anteriores; la solicitud siempre responde `202` y el correo sale en segundo plano; las cuentas inactivas no reciben correo ni pueden restablecer; la nueva contraseña cumple `PasswordPolicy`; los JWT ya emitidos siguen válidos hasta vencer.
+- **Mejora futura — Rechazo de cuentas inactivas con token vigente** (posible mejora futura (decisión del 2026-11-09); no es prioridad): una cuenta inactivada no debe poder seguir operando con un token emitido antes de la inactivación (Plan de Calidad 3.3.3, "casos de acceso al sistema"; RNF-13).
+- **Pendiente de implementar — Notificación de registro exitoso** por correo (salida del P3; RNF-14). Al final de la Entrega 3, con el adaptador de correo.
 
 ### Perfiles de deportistas (vinculados al acudiente)
 - `E1–E4`: registrar, listar, consultar y actualizar deportistas. La edad se calcula con la fecha local de la academia (`America/Bogota`); al editar solo se valida si cambia la fecha de nacimiento. Un administrador solo puede registrar deportistas para un acudiente activo.
 - La edad debe estar entre 12 y 17 años en la fecha de la solicitud, según contrato.
 - Cada perfil queda vinculado al acudiente que lo registró, sin perfiles huérfanos ni vinculaciones erróneas (RNF-12). Los acudientes solo pueden gestionar deportistas asociados a su cuenta; el administrador puede operar en nombre de un acudiente con las reglas documentadas.
 - El deportista no es usuario ni rol del sistema.
+- **Mejora futura — Inactivación del deportista** (posible mejora futura (decisión del 2026-11-09); cambia `openapi.yaml`): la solicitud de supresión de datos de un menor se atiende inactivando su perfil, no borrándolo, para conservar el historial de matrículas, pagos y asistencia. Requiere un estado en `athletes` (cambio pendiente del MER) y una operación en el contrato.
 - No existe DELETE de deportistas en el contrato; la salida de la academia se representa mediante la gestión de la matrícula.
 
 ### Indicadores del Proceso 3
-- **Pendiente de implementar** (KPI de la Definición P3): número de cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas. Requiere un reporte nuevo en el contrato (solo `ADMIN`).
+- `R5` (Entrega 3, etapa 4; KPI de la Definición P3), solo `ADMIN`: número de cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas. **Implementado (2026-11-10), pendiente de revisión.** Las cuentas registradas son las creadas en el mes de `period` (zona de la academia); activas, inactivas y vinculación son el estado actual, porque el estado de las cuentas no guarda historia. `guardianLinkRate` = acudientes activos con al menos un deportista / acudientes activos.
 
 ## Proceso 1 — Gestión de Inscripción y Matrícula
 
@@ -47,31 +48,32 @@
 - `E13`: administrador rechaza matrícula pendiente y libera cupo.
 - `E14`: cancelar matrícula conforme al rol y estado; liberar cupo cuando corresponda.
 - `E15`: cambiar de grupo dentro de la misma disciplina, conservando el mes de inicio; liberar el cupo anterior y reservar el nuevo sin modificar sesiones pasadas ni asistencia.
-- **Pendiente de implementar — Documentación de la matrícula** (Definición P1, entradas y actividad "validar la documentación"; SAD 1.4): el acudiente aporta la autorización del acudiente y, si aplica, el certificado médico; el administrador valida la documentación antes de confirmar la matrícula. La decisión del 2026-10-11 de no gestionar soportes documentales queda revocada por la Definición v02. Los IDs `E9–E11`, ausentes del contrato, pueden reservarse para estas operaciones.
-- **Pendiente de definir — Renovación por periodo**: la Definición describe la matrícula "para un periodo determinado" y su renovación por periodo. El modelo actual (matrícula continua mes a mes con pago mensual) debe confirmarse como interpretación válida o reemplazarse por una renovación explícita.
-- **Pendiente de implementar — Notificación de inscripción exitosa** por correo (salida del P1). Fuera de esta entrega.
+- **Fuera del alcance actual — Documentación de la matrícula** (decisión del 2026-11-09): la Definición v03 ya no incluye "validar la documentación" entre las actividades del P1, aunque sus entradas aún mencionan "documentos requeridos" y el SAD 1.4 la "validación de documentación". El equipo decidió no implementarla por ahora. Los IDs `E9–E11` siguen reservados y las columnas de documentos de `enrollments` no se mapean.
+- **Renovación por periodo — resuelto (2026-11-09)**: se mantiene la matrícula continua mes a mes con pago mensual como interpretación de la "matrícula por periodo" de la Definición. No se modela una renovación explícita.
+- **Pendiente de implementar — Notificación de inscripción exitosa** por correo (salida del P1). Al final de la Entrega 3, con el adaptador de correo.
 
 ### Pagos presenciales
 - `E16`: el acudiente reporta que pagó presencialmente; solo activa `paymentReported`, no cambia el estado financiero.
 - `E17`: el administrador registra el pago presencial; el monto debe ser al menos la mensualidad vigente y se actualiza a `UP_TO_DATE`. Una matrícula puede tener varios pagos, como máximo uno por mes calendario de `paymentDate`; el pago con `paymentDate` más reciente es el último.
 - `E18`: el administrador puede marcar la matrícula `OVERDUE`; `UP_TO_DATE` solo se alcanza registrando un pago. No hay proceso automático de actualización.
 - `E19`: consultar historial de pagos con filtrado de pertenencia para acudientes.
-- El estado de pago se lleva por matrícula (la mensualidad es por disciplina). La Definición habla del estado de pago "de cada deportista": se debe poder consultar de forma consolidada por deportista.
+- El estado de pago se lleva por matrícula (la mensualidad es por disciplina). La Definición habla del estado de pago "de cada deportista": E7 con el filtro `athleteId` devuelve el `paymentStatus` de cada matrícula del deportista; se propone darlo por cubierto sin endpoint nuevo (pendiente de confirmar).
 - No implementar pasarela de pagos en línea.
 
 ### Indicadores del Proceso 1
-- `R1`: informe de matrículas. Cubre los KPI de la Definición P1: número de inscripciones por periodo, tiempo promedio del proceso de inscripción (`averageConfirmationHours`) y porcentaje de matrículas completas frente a abandonadas (`completionRate`, `abandonmentRate`). **Contratado, pendiente de implementar.**
+- `R1` (Entrega 3, etapa 3): informe de matrículas. Cubre los KPI de la Definición P1: número de inscripciones por periodo, tiempo promedio del proceso de inscripción (`averageConfirmationHours`) y porcentaje de matrículas completas frente a abandonadas (`completionRate`, `abandonmentRate`). **Implementado (2026-11-10), pendiente de revisión.** Las matrículas del periodo son las de ese mes de inicio; los pagos, los de las matrículas activas vigentes en el periodo.
 
 ## Proceso 2 — Gestión de Entrenamientos y Asistencia
 
 ### Sesiones y asistencia
 - `A1–A6`: crear, listar, generar, consultar, actualizar y cancelar sesiones, con acceso limitado a grupos asignados cuando el actor sea entrenador.
-- `A7`: consultar lista de deportistas elegibles para asistencia de una sesión.
+- `A7`: consultar lista de deportistas elegibles para asistencia de una sesión. Incluye la edad del deportista (a la fecha actual de la academia, no a la de la sesión) y el contacto del acudiente (nombres, apellidos y teléfono) para emergencias (decisión del 2026-11-09). **Ampliación implementada (2026-11-10), pendiente de revisión**; A8 devuelve la misma lista.
 - `A8`: registrar la asistencia completa del grupo en una sola llamada; guardar de nuevo sobrescribe marcas anteriores (upsert). La sesión pasa a `COMPLETED`; no se puede registrar asistencia en una sesión futura o cancelada.
 - `A9`: consultar historial paginado de asistencia; administradores ven todo, entrenadores sus grupos y acudientes sus deportistas.
-- Notificación de horarios y novedades a los acudientes por correo: fuera de esta entrega.
+- Notificación de horarios y novedades a los acudientes por correo (Entrega 3, etapa 6): `SCHEDULE_PUBLISHED` en A2 con `notify` y `SCHEDULE_CHANGE` en A5 (si cambian la fecha o las horas) y A6. **Implementado (2026-11-10), pendiente de revisión.**
 
 ### Indicadores del Proceso 2
+Entrega 3, etapa 3. **Implementados (2026-11-10), pendientes de revisión.** Reglas de fechas y alcance en `docs/10-plan-implementacion.md`, etapa 3.
 - `R2`: informe de asistencia por alcance autorizado.
 - `R3`: informe de asistencia de un deportista, con verificación de propiedad.
 - `R4`: consulta de ausencias consecutivas, con umbral configurable y filtrado de grupos según rol.
@@ -82,12 +84,24 @@
 
 ## Contradicciones en los documentos oficiales (pendientes de resolver con los responsables)
 - SAD 1.4 incluye "deportista" en la asignación de roles; la Definición establece que el deportista no es usuario. Se aplican los tres roles `ADMIN`, `COACH` y `GUARDIAN`.
-- Plan de Calidad: la sección 3.4.3 fija la confiabilidad de notificaciones en ≥ 80 % (solo registro exitoso) y RNF-14 (sección 4.4.5) en ≥ 95 % (registro y recuperación de contraseña). Se toma RNF-14 como requisito vigente.
-- El SAD aún menciona torneos en `ReportController`, `ReportService`, la capa de persistencia y el ADR-05 ("eventos y resultados"). Prevalece la exclusión del alcance.
-- La tabla de contenido del Plan de Calidad conserva títulos del antiguo Proceso 3 (torneos) para RNF-07 y RNF-11 a RNF-14; prevalece el contenido de la sección 4.
+- La Definición v03 lista "Deportista" entre los actores involucrados del P3; se entiende como actor de negocio, no como usuario.
+- El ADR-05 del SAD v03 aún menciona "eventos y resultados" en la persistencia. Prevalece la exclusión de los torneos.
+- Las entradas del P1 (Definición v03) y el SAD 1.4 mencionan la documentación de la matrícula, que el equipo dejó fuera del alcance actual (2026-11-09).
+- Plan de Calidad: la sección 3.4.3 fija la meta de notificaciones solo para el registro exitoso y RNF-14 para el registro y la recuperación de contraseña; ambas en ≥ 95 %. Se toma RNF-14.
+
+Resueltas en la v03 (9/11/2026): la meta de notificaciones de 80 % frente a 95 %, los títulos de torneos en la tabla de contenido del Plan y las menciones de torneos en `ReportController` y `ReportService` del SAD.
+
+## Notificaciones por correo (decisiones del 2026-11-10, Entrega 3, etapa 6)
+- Catálogo: `ACCOUNT_REGISTERED` (U2), `ENROLLMENT_CONFIRMED` (E12), `ENROLLMENT_REJECTED` (E13, con el motivo), `NO_SPOTS_AVAILABLE` (E6), `SCHEDULE_PUBLISHED` (A2 con `notify`), `SCHEDULE_CHANGE` (A5, A6) y, desde la etapa 7, `PASSWORD_RESET` (U13).
+- Destinatarios: el acudiente del deportista; en los avisos de horarios, cada acudiente activo con algún deportista en matrícula `ACTIVE` en el grupo, una sola vez. Las cuentas inactivas no reciben correos.
+- Ciclo de vida en `notifications`: se registra `PENDING` sin intentos después del commit (o del rollback, en `NO_SPOTS_AVAILABLE`); se envía fuera de la petición y queda `SENT` cuando Brevo acepta el correo o `FAILED` tras un error definitivo o 3 intentos. `attempts` guarda los intentos hechos.
+- **Implementado (2026-11-10), pendiente de revisión.**
 
 ## Pendientes de definición
-- Catálogo de eventos de notificación, persistencia en `notifications`, reintentos y relación entre notificación y envío de correo.
-- Almacenamiento de los documentos de la matrícula, tipos y tamaño admitidos, y en qué casos aplica el certificado médico.
-- Renovación de la matrícula por periodo (ver Proceso 1).
-- Tratamiento de consentimiento de datos de menores y sus evidencias con los responsables del proyecto.
+- Versión de la política de datos aceptada: se decide al final del desarrollo; hoy solo se guarda la aceptación y su fecha.
+
+## Tratamiento de datos de menores (decisiones del 2026-11-09)
+- La autorización del acudiente al registrarse (U2) cubre el tratamiento de los datos de todos los deportistas que vincule, también los que el administrador registre en su nombre. No se pide una autorización por deportista.
+- La supresión de datos de un menor se atenderá inactivando su perfil, como mejora futura (ver Perfiles de deportistas). Mientras no exista, el sistema no la gestiona.
+- El entrenador ve la edad del deportista y el contacto del acudiente en la lista de asistencia (ver A7), solo para los deportistas de sus grupos.
+- **Posible implementación futura, fuera del alcance actual**: auditoría de quién consulta los datos de menores.

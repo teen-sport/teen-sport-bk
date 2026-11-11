@@ -46,6 +46,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class EnrollmentServiceTest {
@@ -63,6 +64,7 @@ class EnrollmentServiceTest {
     private final AthleteRepository athleteRepository = mock(AthleteRepository.class);
     private final GroupRepository groupRepository = mock(GroupRepository.class);
     private final ScheduleRepository scheduleRepository = mock(ScheduleRepository.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
     private EnrollmentService service;
 
     @BeforeEach
@@ -71,7 +73,7 @@ class EnrollmentServiceTest {
         service = new EnrollmentService(enrollmentRepository, athleteRepository, groupRepository, accessPolicy,
                 new SpotCounter(enrollmentRepository),
                 new EnrollmentQueryService(enrollmentRepository, scheduleRepository, accessPolicy),
-                new AcademyCalendar(Clock.fixed(NOW, ZoneOffset.UTC), "America/Bogota"));
+                new AcademyCalendar(Clock.fixed(NOW, ZoneOffset.UTC), "America/Bogota"), notificationService);
         when(enrollmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -100,6 +102,7 @@ class EnrollmentServiceTest {
         assertThat(detail.discipline().name()).isEqualTo("Fútbol");
         assertThat(detail.schedules()).hasSize(1);
         assertThat(detail.confirmedAt()).isNull();
+        verifyNoInteractions(notificationService);
     }
 
     @Test
@@ -189,9 +192,9 @@ class EnrollmentServiceTest {
     }
 
     @Test
-    void fullGroupRejectsTheRequestWithoutCreatingIt() {
-        athlete(5, TODAY.minusYears(14));
-        group(7, 2, EntityStatus.ACTIVE, EntityStatus.ACTIVE);
+    void fullGroupRejectsTheRequestWithoutCreatingItAndNotifiesTheGuardian() {
+        Athlete athlete = athlete(5, TODAY.minusYears(14));
+        Group group = group(7, 2, EntityStatus.ACTIVE, EntityStatus.ACTIVE);
         when(enrollmentRepository.countByGroupIdAndStatusIn(7, EnrollmentStatus.IN_FORCE)).thenReturn(2L);
 
         BusinessException ex = failure(() -> service.create(ADMIN, new CreateEnrollmentRequest(5, 7, CURRENT)));
@@ -199,6 +202,7 @@ class EnrollmentServiceTest {
         assertThat(ex.getCode()).isEqualTo(ErrorCode.NO_AVAILABLE_SPOTS);
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
         verify(enrollmentRepository, never()).save(any());
+        verify(notificationService).noSpotsAvailable(athlete, group, CURRENT);
     }
 
     private Athlete athlete(int id, LocalDate birthDate) {

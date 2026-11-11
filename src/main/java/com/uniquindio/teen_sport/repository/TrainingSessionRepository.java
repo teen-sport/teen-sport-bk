@@ -116,4 +116,32 @@ public interface TrainingSessionRepository extends JpaRepository<TrainingSession
             """)
     int reassignScheduledFrom(@Param("groupId") Integer groupId, @Param("coach") Coach coach,
                               @Param("from") LocalDate from);
+
+    /**
+     * R2: sesiones no canceladas y realizadas por grupo en un rango de fechas. Los filtros nulos no
+     * limitan la consulta.
+     *
+     * @param from         primera fecha, incluida
+     * @param to           última fecha, incluida
+     * @param groupId      grupo, o {@code null}
+     * @param disciplineId disciplina, o {@code null}
+     * @param coachId      entrenador actual del grupo, o {@code null}
+     * @return un conteo por grupo con sesiones, ordenado por disciplina y grupo
+     */
+    @Query("""
+            select g.id as groupId, g.name as groupName, d.name as discipline, count(s) as scheduled,
+                   sum(case when s.status = com.uniquindio.teen_sport.entity.SessionStatus.COMPLETED then 1 else 0 end) as completed
+            from TrainingSession s join s.group g join g.discipline d
+            where s.sessionDate between :from and :to
+              and s.status <> com.uniquindio.teen_sport.entity.SessionStatus.CANCELLED
+              and (:groupId is null or g.id = :groupId)
+              and (:disciplineId is null or d.id = :disciplineId)
+              and (:coachId is null or g.coach.id = :coachId)
+            group by g.id, g.name, d.name
+            order by d.name, g.name, g.id
+            """)
+    List<GroupSessionCount> countSessionsByGroup(@Param("from") LocalDate from, @Param("to") LocalDate to,
+                                                 @Param("groupId") Integer groupId,
+                                                 @Param("disciplineId") Integer disciplineId,
+                                                 @Param("coachId") Integer coachId);
 }

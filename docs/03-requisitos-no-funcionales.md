@@ -1,6 +1,6 @@
 # 03. Requisitos no funcionales y calidad
 
-La fuente normativa de valores, fórmulas y criterios de aceptación es el Plan de Gestión de la Calidad del Proyecto (versión 02, 19/10/2026), sección 4. Esta documentación transcribe sus metas y no reemplaza la tabla original.
+La fuente normativa de valores, fórmulas y criterios de aceptación es el Plan de Gestión de la Calidad del Proyecto (versión 02, 19/10/2026; revisado el 9/11/2026 sin cambios en los RNF), sección 4. Esta documentación transcribe sus metas y no reemplaza la tabla original.
 
 ## Requisitos no funcionales (ISO/IEC 25010)
 
@@ -26,8 +26,7 @@ La fuente normativa de valores, fórmulas y criterios de aceptación es el Plan 
 
 Notas:
 - RNF-07 y RNF-11 a RNF-14 se redefinieron en la versión 02 al reemplazar el antiguo proceso de torneos; las metas anteriores (operación de torneos, integridad entre procesos, consistencia de resultados) quedan sin efecto.
-- El Plan fija en su sección 3.4.3 la confiabilidad de notificaciones en ≥ 80 %, mientras RNF-14 exige ≥ 95 %. Se aplica RNF-14 hasta que el Plan se corrija.
-- RNF-14 depende del adaptador de correo, fuera de la entrega actual; no se puede declarar su cumplimiento sin envíos reales medidos.
+- RNF-14 depende del adaptador de correo, implementado el 2026-11-10 (Entrega 3, etapa 6); no se puede declarar su cumplimiento sin envíos reales medidos. La medición sale de `notifications`: notificaciones `SENT` sobre el total de `ACCOUNT_REGISTERED` y `PASSWORD_RESET` (recuperación de contraseña, desde la etapa 7).
 
 ## Métricas del proceso de desarrollo (Plan, sección 3.3)
 - Por módulo: defectos por módulo (Jira), cobertura de pruebas (JaCoCo), casos de prueba superados y cumplimiento de entregables.

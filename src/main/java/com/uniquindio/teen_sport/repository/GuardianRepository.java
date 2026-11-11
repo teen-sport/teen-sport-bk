@@ -10,6 +10,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 
 /**
  * Acceso a los perfiles de acudiente.
@@ -45,4 +46,16 @@ public interface GuardianRepository extends JpaRepository<Guardian, Integer>, Jp
      * @return el perfil de acudiente de esa cuenta, si existe
      */
     Optional<Guardian> findByUserId(Integer userId);
+
+    /**
+     * Acudientes con cuenta activa y al menos un deportista vinculado (R5).
+     *
+     * @return el número de esos acudientes
+     */
+    @Query("""
+            select count(g) from Guardian g
+            where g.user.status = com.uniquindio.teen_sport.entity.EntityStatus.ACTIVE
+              and exists (select a.id from Athlete a where a.guardian = g)
+            """)
+    long countActiveWithAthletes();
 }

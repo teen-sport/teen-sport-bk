@@ -11,6 +11,8 @@ import com.uniquindio.teen_sport.validation.EmailNormalizer;
 import com.uniquindio.teen_sport.validation.PasswordPolicy;
 import com.uniquindio.teen_sport.validation.TextNormalizer;
 import java.time.Clock;
+import java.util.function.Supplier;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,11 @@ import org.springframework.stereotype.Component;
  *
  * <p>Aplica la política de contraseñas, normaliza el correo, rechaza correo o documento ya
  * registrados y guarda solo el hash BCrypt. Debe invocarse dentro de la transacción del caso de uso.</p>
+ *
+ * <p>La unicidad se garantiza en dos niveles (RNF-11): una comprobación previa da el error habitual y,
+ * si dos solicitudes simultáneas la superan a la vez, la restricción única de la base rechaza la
+ * segunda escritura. Ese rechazo se traduce al mismo {@code 409} con {@link AccountConflictLookup},
+ * en lugar de terminar como un error interno.</p>
  */
 @Component
 public class AccountCreator {
@@ -32,6 +39,7 @@ public class AccountCreator {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicy passwordPolicy;
+    private final AccountConflictLookup conflictLookup;
     private final Clock clock;
 
     /**
@@ -39,14 +47,17 @@ public class AccountCreator {
      * @param roleRepository  catálogo de roles
      * @param passwordEncoder hash BCrypt
      * @param passwordPolicy  fortaleza de contraseñas
+     * @param conflictLookup  identificación del dato duplicado tras un rechazo de la base
      * @param clock           reloj de la aplicación
      */
     public AccountCreator(UserRepository userRepository, RoleRepository roleRepository,
-                          PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, Clock clock) {
+                          PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy,
+                          AccountConflictLookup conflictLookup, Clock clock) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicy = passwordPolicy;
+        this.conflictLookup = conflictLookup;
         this.clock = clock;
     }
 
@@ -70,25 +81,55 @@ public class AccountCreator {
         user.setFirstName(data.firstNames().trim());
         user.setLastName(data.lastNames().trim());
         user.setPhone(TextNormalizer.trimToNull(data.phone()));
-        return userRepository.save(user);
+        return writeUnique(() -> userRepository.save(user), email, idNumber);
     }
 
     /**
-     * @param email correo normalizado
-     * @throws BusinessException 409 {@code EMAIL_ALREADY_REGISTERED} si el correo ya existe
+     * Cambia el correo de una cuenta existente (U9) y escribe el cambio de inmediato, para que un
+     * correo tomado por una solicitud simultánea se detecte aquí y no al confirmar la transacción.
+     *
+     * @param user  cuenta a modificar
+     * @param email nuevo correo, ya normalizado
+     * @throws BusinessException 409 {@code EMAIL_ALREADY_REGISTERED} si otra cuenta ya usa el correo
      */
-    public void ensureEmailAvailable(String email) {
+    public void changeEmail(User user, String email) {
+        ensureEmailAvailable(email);
+        user.changeEmail(email);
+        writeUnique(() -> user, email, null);
+    }
+
+    private void ensureEmailAvailable(String email) {
         if (userRepository.existsByEmail(email)) {
-            throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED, HttpStatus.CONFLICT, EMAIL_TAKEN_MESSAGE);
+            throw conflict(ErrorCode.EMAIL_ALREADY_REGISTERED, null);
         }
     }
 
     private void ensureNotRegistered(String email, String idNumber) {
         ensureEmailAvailable(email);
         if (userRepository.existsByDocumentNumber(idNumber)) {
-            throw new BusinessException(ErrorCode.ID_NUMBER_ALREADY_REGISTERED, HttpStatus.CONFLICT,
-                    ID_NUMBER_TAKEN_MESSAGE);
+            throw conflict(ErrorCode.ID_NUMBER_ALREADY_REGISTERED, null);
         }
+    }
+
+    /**
+     * Ejecuta la escritura y la envía a la base para que una violación de unicidad ocurra aquí. Si la
+     * base la rechaza y el dato duplicado es el correo o el documento, responde el {@code 409}
+     * correspondiente; cualquier otro rechazo se relanza sin cambios.
+     */
+    private User writeUnique(Supplier<User> write, String email, String idNumber) {
+        try {
+            User user = write.get();
+            userRepository.flush();
+            return user;
+        } catch (DataIntegrityViolationException ex) {
+            ErrorCode code = conflictLookup.find(email, idNumber).orElseThrow(() -> ex);
+            throw conflict(code, ex);
+        }
+    }
+
+    private static BusinessException conflict(ErrorCode code, Throwable cause) {
+        String message = code == ErrorCode.EMAIL_ALREADY_REGISTERED ? EMAIL_TAKEN_MESSAGE : ID_NUMBER_TAKEN_MESSAGE;
+        return new BusinessException(code, HttpStatus.CONFLICT, message, cause);
     }
 
     /**

@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     REST API for TeenSport, the web system of a youth multi-sport academy.
-    Covers authentication and users, Process 1 (enrollment) and Process 2 (training and attendance).
+    Covers authentication and users, Process 1 (enrollment), Process 2 (training and attendance) and their reports.
 
     **Language convention.** Everything that is code is in English: paths, query parameters, JSON fields,
     enum values and error codes. Everything the end user sees is in Spanish: the `message` field of every
@@ -19,6 +19,9 @@ info:
 
     **Formats.** Dates `2026-10-06`, times `16:30`, period `2026-10` (`YYYY-MM`), timestamps ISO-8601 UTC,
     money as a decimal number in COP.
+
+    **E-mails.** Notifications are sent through Brevo after the operation finishes, outside the request, to active accounts
+    only. A delivery failure never changes the HTTP response; each attempt is recorded in `notifications`.
 
     **Status codes.** 200 read or update, 201 creation (with a `Location` header), 204 no body, 400 malformed or invalid fields,
     401 not authenticated, 403 not allowed, 404 not found, 409 duplicate or state conflict, 422 business rule broken.
@@ -78,6 +81,51 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /auth/password-reset/request:
+    post:
+      tags: [Auth]
+      operationId: requestPasswordReset
+      summary: Request a password reset link
+      description: |
+        **Roles:** public. Always answers 202 with no body, whether or not the e-mail belongs to an account and whether the
+        account is active, so the answer does not reveal registered e-mails. Only for an active account: invalidates its
+        previous reset links, creates a single-use token valid for 20 minutes (stored only as a SHA-256 hash) and, after commit,
+        sends the `PASSWORD_RESET` e-mail (not awaited) with the link `{PASSWORD_RESET_URL}?token={token}`.
+      x-endpoint-id: U13
+      x-roles: [PUBLIC]
+      x-error-codes: [VALIDATION_ERROR]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordResetRequest' }
+      responses:
+        '202': { description: Request received. An e-mail is sent only if the address belongs to an active account. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      operationId: confirmPasswordReset
+      summary: Reset the password with the e-mailed token
+      description: |
+        **Roles:** public. Sets the new password and spends the token; the account's other open links are invalidated.
+        An unknown, expired, used or replaced token, or one of an inactive account, returns the same 422 `INVALID_RESET_TOKEN`.
+        The token is checked before the password: `WEAK_PASSWORD` is returned only with a valid token, and then the token is
+        not spent. Access tokens (JWT) already issued stay valid until they expire.
+      x-endpoint-id: U14
+      x-roles: [PUBLIC]
+      x-error-codes: [VALIDATION_ERROR, INVALID_RESET_TOKEN, WEAK_PASSWORD]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordResetConfirmRequest' }
+      responses:
+        '204': { description: Password changed. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   # ----------------------------------------------------------------- USERS
   /users/register:
     post:
@@ -87,7 +135,8 @@ paths:
       description: |
         **Roles:** public. Only guardians register themselves; coaches and admins are created by an admin (U8).
         Creates the `users` and `guardians` rows in one transaction, with role `GUARDIAN`. `acceptedDataPolicy` must be `true` (Law 1581 of 2012).
-        After this, the client calls `POST /auth/login`.
+        After commit the guardian receives the `ACCOUNT_REGISTERED` welcome e-mail (not awaited). After this, the client calls
+        `POST /auth/login`.
       x-endpoint-id: U2
       x-roles: [PUBLIC]
       x-error-codes: [VALIDATION_ERROR, DATA_POLICY_NOT_ACCEPTED, EMAIL_ALREADY_REGISTERED, ID_NUMBER_ALREADY_REGISTERED, WEAK_PASSWORD]
@@ -502,8 +551,8 @@ paths:
         in force month to month until it is rejected or cancelled. Returns 409 `DUPLICATE_ENROLLMENT` when the athlete already has an
         in-force enrollment (`PENDING_REVIEW` or `ACTIVE`) in the same discipline, whatever its group or start period; to move to
         another group use E15. Enrollments in other disciplines are allowed.
-        When there is no spot, nothing is created, the e-mail `NO_SPOTS_AVAILABLE` is sent and the call returns 409
-        (the e-mail is sent once the mail adapter exists, phase 7). A spot is free when the group's in-force enrollments, whatever their
+        When there is no spot, nothing is created, the call returns 409 and the athlete's guardian receives the e-mail
+        `NO_SPOTS_AVAILABLE` after the rollback (not awaited). A spot is free when the group's in-force enrollments, whatever their
         start period, are fewer than `maxCapacity`. Checks run in this order: athlete and group exist (404), ownership (403), age,
         period, active group and discipline (422), duplicate and spots (409).
       x-endpoint-id: E6
@@ -602,7 +651,7 @@ paths:
         **Roles:** ADMIN. Moves to `ACTIVE`, sets `confirmedAt`, and sends `ENROLLMENT_CONFIRMED` after commit (not awaited, RNF-04).
         `groupId` (optional) assigns another group of the same discipline; `payment` (optional, same body as E17) registers the payment
         in the same call, under the same rules as E17, and sets `paymentStatus` to `UP_TO_DATE`; without it the enrollment stays `OVERDUE`.
-        If the payment breaks a rule nothing is confirmed. The e-mail is sent once the mail adapter exists (phase 7). Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
+        If the payment breaks a rule nothing is confirmed and no e-mail is sent. Only from `PENDING_REVIEW` (409 `INVALID_STATE`). Without `groupId`, or with the current one,
         the current group must still be active (422 `GROUP_INACTIVE`); another group must be of the same discipline, active and with a
         free spot.
       x-endpoint-id: E12
@@ -634,7 +683,7 @@ paths:
       summary: Reject an enrollment
       description: |
         **Roles:** ADMIN. Only from `PENDING_REVIEW`. Terminal state `REJECTED`; frees the spot;
-        sends `ENROLLMENT_REJECTED` with the reason (once the mail adapter exists, phase 7). The reason is stored as `reviewNotes`.
+        sends `ENROLLMENT_REJECTED` with the reason after commit (not awaited). The reason is stored as `reviewNotes`.
       x-endpoint-id: E13
       x-roles: [ADMIN]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
@@ -1285,8 +1334,8 @@ paths:
       description: |
         **Roles:** ADMIN, COACH (own group). Creates one session per schedule slot and date in the range (at most 62 days, both ends
         included). Sessions with the same date and start time as an existing one are skipped. `dateFrom` cannot be before today.
-        With `notify=true` every guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`
-        (from phase 7; until then `notify` is accepted and no e-mail is sent). `sessions` holds only the created sessions.
+        With `notify=true` every active guardian of an athlete with an `ACTIVE` enrollment in the group receives `SCHEDULE_PUBLISHED`
+        once, after commit, if at least one session was created. `sessions` holds only the created sessions.
       x-endpoint-id: A2
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, GROUP_INACTIVE, GROUP_WITHOUT_SCHEDULES, INVALID_DATE_RANGE, DATE_IN_PAST]
@@ -1332,7 +1381,8 @@ paths:
       summary: Reschedule a session
       description: |
         **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions (409 `INVALID_STATE`). Same date, time and duplicate rules as A1,
-        ignoring the session itself. `notes` replaces the previous notes. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
+        ignoring the session itself. `notes` replaces the previous notes. Sends `SCHEDULE_CHANGE` to the guardians of the group when the date or the times change
+        (changing only `notes` sends nothing).
       x-endpoint-id: A5
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, DATE_IN_PAST, INVALID_TIME_RANGE, DUPLICATE_SESSION]
@@ -1362,7 +1412,7 @@ paths:
       summary: Cancel a session
       description: |
         **Roles:** ADMIN, COACH (own group). Only `SCHEDULED` sessions. The reason is stored in `notes`. Cancelled sessions do not count
-        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group (phase 7).
+        in attendance reports. Sends `SCHEDULE_CHANGE` to the guardians of the group.
       x-endpoint-id: A6
       x-roles: [ADMIN, COACH]
       x-error-codes: [VALIDATION_ERROR, NOT_FOUND, INVALID_STATE]
@@ -1393,7 +1443,8 @@ paths:
       description: |
         **Roles:** COACH (assigned to the group), ADMIN. The roster is the `ACTIVE` enrollments of the group whose start `period`
         is on or before the month of the session, ordered by last name. `status` is null for athletes not yet marked. Marks of athletes
-        that left the roster later are kept in the history (A9) but are not listed here.
+        that left the roster later are kept in the history (A9) but are not listed here. Each athlete carries their current `age` and
+        the `guardian` emergency contact (name and phone); A8 returns the same roster.
       x-endpoint-id: A7
       x-roles: [COACH, ADMIN]
       x-error-codes: [NOT_FOUND]
@@ -1586,6 +1637,30 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/RecurrentAbsence' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reports/users:
+    get:
+      tags: [Reports]
+      operationId: getUserReport
+      summary: User account indicators
+      description: |
+        **Roles:** ADMIN. `period` is required. `registeredInPeriod` counts the accounts created in that month (academy time zone),
+        even if they are inactive now. `active`, `inactive`, `inactiveAccounts` and `guardiansWithAthletes` reflect the current state,
+        because account status keeps no history. `guardianLinkRate` = active guardians with at least one athlete / active guardians
+        (percent; 0 when there are no active guardians). `byRole` always lists `ADMIN`, `COACH` and `GUARDIAN`, in that order.
+      x-endpoint-id: R5
+      x-roles: [ADMIN]
+      x-error-codes: [VALIDATION_ERROR]
+      parameters:
+        - { $ref: '#/components/parameters/PeriodRequired' }
+      responses:
+        '200':
+          description: Report.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserReport' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1785,6 +1860,7 @@ components:
         - ID_NUMBER_ALREADY_REGISTERED
         - WEAK_PASSWORD
         - INCORRECT_CURRENT_PASSWORD
+        - INVALID_RESET_TOKEN
         - CANNOT_DEACTIVATE_SELF
         - COACH_HAS_ACTIVE_GROUPS
         - INTERNAL_ERROR
@@ -1858,6 +1934,17 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string, format: password, maxLength: 72 }
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 150 }
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token: { type: string, maxLength: 100, description: 'Token from the e-mailed link (43 URL-safe Base64 characters).' }
+        newPassword: { type: string, format: password, minLength: 8, maxLength: 72, description: 'Same policy as `ChangePasswordRequest.newPassword`.' }
     LoginResponse:
       type: object
       required: [accessToken, tokenType, expiresInSeconds, user]
@@ -2284,15 +2371,25 @@ components:
     # ------------------------------------------------------------ attendance
     AttendanceRosterEntry:
       type: object
-      required: [athleteId, firstNames, lastNames, status]
+      required: [athleteId, firstNames, lastNames, age, guardian, status]
       properties:
         athleteId: { type: integer, format: int32 }
         firstNames: { type: string }
         lastNames: { type: string }
+        age: { type: integer, description: "Age in years on today's date in the academy time zone (not the session date).", example: 14 }
+        guardian: { $ref: '#/components/schemas/GuardianContact' }
         status:
           allOf:
             - $ref: '#/components/schemas/AttendanceStatus'
           nullable: true
+    GuardianContact:
+      type: object
+      description: Emergency contact of the athlete's guardian. Only in the attendance roster (A7, A8).
+      required: [firstNames, lastNames, phone]
+      properties:
+        firstNames: { type: string }
+        lastNames: { type: string }
+        phone: { type: string, nullable: true, example: '3001234567' }
     AttendanceRoster:
       type: object
       required: [sessionId, group, date, status, attendanceRecorded, records]
@@ -2418,3 +2515,22 @@ components:
         group: { $ref: '#/components/schemas/IdName' }
         consecutiveAbsences: { type: integer, example: 3 }
         lastAttendance: { type: string, format: date, nullable: true }
+    UserReport:
+      type: object
+      required: [period, registeredInPeriod, inactiveAccounts, guardiansWithAthletes, guardianLinkRate, byRole]
+      properties:
+        period: { $ref: '#/components/schemas/Period' }
+        registeredInPeriod: { type: integer, description: 'Accounts created in the period, all roles.', example: 7 }
+        inactiveAccounts: { type: integer, description: 'Accounts inactive now, all roles.', example: 3 }
+        guardiansWithAthletes: { type: integer, description: 'Active guardians with at least one athlete.', example: 38 }
+        guardianLinkRate: { type: number, format: double, description: Percent., example: 95.0 }
+        byRole:
+          type: array
+          items:
+            type: object
+            required: [role, registeredInPeriod, active, inactive]
+            properties:
+              role: { $ref: '#/components/schemas/Role' }
+              registeredInPeriod: { type: integer }
+              active: { type: integer }
+              inactive: { type: integer }

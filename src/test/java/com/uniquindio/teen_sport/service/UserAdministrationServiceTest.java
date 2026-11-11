@@ -58,7 +58,8 @@ class UserAdministrationServiceTest {
     @BeforeEach
     void setUp() {
         AccountCreator accountCreator = new AccountCreator(userRepository, roleRepository,
-                new BCryptPasswordEncoder(4), new PasswordPolicy(), Clock.fixed(NOW, ZoneOffset.UTC));
+                new BCryptPasswordEncoder(4), new PasswordPolicy(), new AccountConflictLookup(userRepository),
+                Clock.fixed(NOW, ZoneOffset.UTC));
         service = new UserAdministrationService(userRepository, coachRepository, groupRepository, accountCreator,
                 new RoleProfileResolver(guardianRepository, coachRepository), new ProfileEditor(),
                 new UserProfileMapper());

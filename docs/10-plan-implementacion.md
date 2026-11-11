@@ -27,7 +27,7 @@ Se desarrolla por historias de usuario, una rama por HU: HU28 (U1, U2), HU29 (U3
 
 **Estado (2026-10-11): en curso.**
 - HU28 integrada en `development` (PR #11): entidades `roles`, `users`, `guardians`, `coaches`; JWT HS256 con resource server; BCrypt; política de contraseñas; registro de acudiente (U2) y login (U1); 401/403 con formato `Error`; CORS explícito; roles y administrador inicial al arrancar. `./gradlew check`: 82 pruebas en verde.
-- Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.
+- ~~Limitación conocida: dos registros simultáneos con el mismo correo o documento no duplican datos (restricción única en PostgreSQL), pero la segunda solicitud recibe 500 en lugar de 409.~~ Resuelta el 2026-11-09 (Entrega 3, etapa 2).
 - HU29 integrada en `development` (PR #12): U3 `GET /users/me`, U4 `PUT /users/me` (reemplazo completo; campos de otro rol ignorados), U5 `PUT /users/me/password`; identidad tomada del JWT (`CurrentUserService`); `RoleProfileResolver` compartido con el login. `./gradlew check`: 109 pruebas en verde.
 - HU30 implementada en `feature/HU30/user-administration` (pendiente de revisión y PR): U6 listado paginado con filtros y búsqueda, U7 detalle, U8 creación de `ADMIN`/`COACH`, U9 edición, U10 activación/desactivación, U11 entrenadores, U12 acudientes; autorización `ADMIN` en el filtro y con `@PreAuthorize`; carga en bloque de perfiles para evitar N+1; `AccountCreator` y `ProfileEditor` compartidos con U2, U4 y el administrador inicial. `./gradlew check`: 147 pruebas en verde.
 - `COACH_HAS_ACTIVE_GROUPS` en U10: cerrado en HU33.
@@ -70,12 +70,12 @@ Decisiones (2026-10-13):
 - Cupos: una matrícula vigente ocupa cupo desde su mes de inicio en adelante, así que E6, H9 (y E12/E15 en HU37) validan contra todas las matrículas vigentes del grupo. En E5, `occupiedSpots` cuenta las que empezaron en el periodo o antes y `availableSpots` es la capacidad menos todas las vigentes (mínimo 0).
 - Filtro `period` de E7: matrículas vigentes en ese mes (inicio igual o anterior y, sin filtro de estado, `PENDING_REVIEW` o `ACTIVE`).
 - El motivo opcional de E14 se guarda en `review_notes` (HU37).
-- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Fase 8. Pago dentro de E12: cerrado en HU36 (Fase 5).
+- Correos (`NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`): pendientes de la Entrega 3, etapa 6. Pago dentro de E12: cerrado en HU36 (Fase 5).
 
 **Estado (2026-10-14): HU35 (PR #20) y HU37 (PR #21) integradas en `development`.**
 - HU35: entidad `enrollments` (sin las columnas de soportes documentales); E5 `GET /availability`, E6 `POST /enrollments`, E7 `GET /enrollments`, E8 `GET /enrollments/{id}`; cupos en `SpotCounter` (una consulta agrupada para E5); E6 bloquea el deportista y luego el grupo antes de comprobar duplicado y cupo; H9 `CAPACITY_BELOW_OCCUPIED` y H10 `GROUP_HAS_ACTIVITY` (matrículas) con bloqueo del grupo; `hasActiveEnrollment` real en E1–E4 (en lote en E2). Los mappers de grupos y matrículas pasan a ser funciones estáticas. `./gradlew check`: 287 pruebas en verde.
 - HU37: E12 `confirm`, E13 `reject`, E14 `cancel`, E15 `group` en `EnrollmentLifecycleService`; cada operación bloquea la matrícula y, al cambiar de grupo, el grupo de destino antes de contar cupos; reglas de grupo compartidas con E6 en `GroupEnrollmentPolicy`; reglas por URL para que solo `ADMIN` revise o mueva matrículas. `./gradlew check`: 310 pruebas en verde.
-- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Fase 8).
+- Pendiente: correos `NO_SPOTS_AVAILABLE`, `ENROLLMENT_CONFIRMED` y `ENROLLMENT_REJECTED` (Entrega 3, etapa 6).
 
 ## Fase 5 — Pagos presenciales
 - Reporte por acudiente.
@@ -108,30 +108,136 @@ Decisiones (2026-10-14):
 - En H10 y H11, "futuras" son las sesiones `SCHEDULED` con fecha de hoy en adelante.
 - Las marcas de deportistas que salen de la lista se conservan en el historial (A9) y no aparecen en A7.
 
-**Estado (2026-10-14): HU39 implementada, pendiente de revisión.**
-- HU39 en `feature/HU39/attendance-management`: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`. `./gradlew check` completo: pendiente de ejecutar.
-- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Fase 8.
+**Estado (2026-11-09): HU39 integrada en `development` (PR #23); `./gradlew check` completo en verde sobre `development` el 2026-11-09: 369 pruebas, 0 fallos (Entrega 3, etapa 1).**
+- HU39: entidades `training_sessions` y `attendance_records`; A1, A2, A5 y A6 en `SessionService` (reglas de fecha, hora y duplicado en `SessionSlotPolicy`, rangos en `DateRangePolicy`); A3 y A4 en `SessionQueryService`; A7 y A8 en `AttendanceService`; A9 en `AttendanceQueryService`. Crear, generar y reprogramar bloquean el grupo; reprogramar, cancelar y registrar asistencia bloquean la sesión, así que no se duplican sesiones ni marcas. H10 y H11 consultan y traspasan las sesiones futuras mediante `GroupActivity`. Reglas por URL: registrar asistencia solo `COACH`.
+- Pendiente: correos `SCHEDULE_PUBLISHED` (A2 con `notify`) y `SCHEDULE_CHANGE` (A5, A6), en la Entrega 3, etapa 6.
 
-## Fase 7 — Alineación con los documentos oficiales v02 (Procesos 1 y 3)
-Origen: la Definición del Proyecto y el Plan de Calidad v02 (19/10/2026) reemplazaron el proceso de torneos por el de registro, autenticación y gestión de usuarios, y el proyecto debe adaptarse a ellos.
+## Fase 7 — Alineación con los documentos oficiales (v02 y v03)
+Origen: la Definición del Proyecto y el Plan de Calidad v02 (19/10/2026) reemplazaron el proceso de torneos por el de registro, autenticación y gestión de usuarios. La Definición y el SAD v03 (9/11/2026) añadieron la nota de alcance: el correo y las notificaciones (Brevo), la recuperación de contraseña, la creación de administradores desde la interfaz y la generación de reportes se planificaron para la tercera entrega. Los RNF del Plan de Calidad no cambiaron.
 
-**Estado (2026-10-19): documentación interna alineada; implementación pendiente.**
-- Hecho: actualización de `CLAUDE.md`, `docs/01`–`docs/10`, ADR-010 interno y skills de `.claude/` (alcance por procesos, exclusión de torneos, RNF v02, despliegue en GitHub Actions y Railway, cambios pendientes del MER y del contrato).
-- 7.1 Seguridad de cuentas (P3): rechazar tokens de cuentas inactivas y traducir los duplicados concurrentes de registro a `409`.
-- 7.2 Recuperación de contraseña (P3): contrato, tabla de tokens, endpoints públicos y puerto de notificaciones; la entrega por correo llega con la Fase 8.
-- 7.3 Documentación de la matrícula (P1): contrato (IDs `E9–E11` reservados), mapeo de las columnas del MER, almacenamiento de archivos y validación antes de E12.
-- 7.4 Renovación por periodo (P1): según la decisión que se tome.
-- 7.5 Indicadores: R1 (P1) y reporte de usuarios del P3, con `ReportController`/`ReportService`; consulta consolidada del estado de pago por deportista.
+**Estado (2026-11-09): documentación interna alineada con la Definición v03, el SAD v03 y el Plan de Calidad v02.**
+- Hecho (2026-10-19): actualización de `CLAUDE.md`, `docs/01`–`docs/10`, ADR-010 interno y skills de `.claude/` (alcance por procesos, exclusión de torneos, RNF v02, despliegue en GitHub Actions y Railway).
+- Hecho (2026-11-09): versiones v03 en las fuentes de verdad, decisiones de alcance y reorganización del trabajo restante en la Entrega 3.
 
-Decisiones pendientes: almacenamiento de documentos y casos en que aplica el certificado médico; modelo de renovación; si la recuperación de contraseña se construye antes de la integración de correo.
+Decisiones del 2026-11-09:
+- La documentación de la matrícula queda fuera del alcance; `E9–E11` siguen reservados.
+- Se mantiene la matrícula continua mes a mes; no hay renovación explícita.
+- La autorización del acudiente en U2 cubre a todos sus deportistas, también los que registre el administrador.
+- El entrenador ve en A7 la edad del deportista y el contacto del acudiente.
+- El correo, las notificaciones y la recuperación de contraseña se hacen al final de la Entrega 3; el catálogo de notificaciones se define en ese momento.
+- La creación de administradores ya existe en la API (U8); la nota de alcance se refiere a la interfaz.
 
-## Fase 8 — Correo y notificaciones (fuera de la entrega actual)
-- Definir catálogo de eventos (registro de cuenta, recuperación de contraseña, inscripción, confirmación y rechazo, falta de cupos, horarios y novedades) y el ciclo de vida en `notifications`.
-- Componente `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit.
-- Observabilidad, reintentos y pruebas de fallos del proveedor; medición de RNF-14.
+## Entrega 3 — Trabajo restante para cerrar el proyecto
+Estamos en la tercera entrega (confirmado el 2026-11-09). El orden prioriza lo indispensable y deja el correo y la recuperación de contraseña para el final. Cada etapa se desarrolla en su propia rama (una HU por rama) y cierra con `./gradlew check`, documentación y trazabilidad actualizadas.
 
-## Fase 9 — Calidad y despliegue
-- Ejecutar suite completa, revisar cobertura (JaCoCo) y Javadoc (RNF-17).
-- Medir RNF de rendimiento (RNF-04, RNF-06, RNF-07) y seguridad (RNF-13, RNF-15, RNF-16) con evidencia reproducible.
+| Orden | Etapa | IDs | Requiere contrato nuevo | Estado |
+|---|---|---|---|---|
+| 1 | Cierre de HU39 | A1–A9 | No | Hecho (2026-11-09) |
+| 2 | Duplicados concurrentes de cuentas → `409` | U2, U8, U9 | No | Hecho (PR #40) |
+| 3 | Reportes de matrícula y asistencia | R1–R4 | No (ya contratados) | Hecho (PR #41) |
+| 4 | Indicadores del Proceso 3 | R5 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #42) |
+| 5 | Ampliación de la lista de asistencia | A7, A8 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #42) |
+| 6 | Correo y notificaciones | MER `notifications`; U2, E6, E12, E13, A2, A5, A6 | Sí (aprobado el 2026-11-10) | Integrada en `development` (PR #43) |
+| 7 | Recuperación de contraseña | U13, U14 (`/auth/password-reset/*`) | Sí (aprobado el 2026-11-10), tabla `password_reset_tokens` | Implementada en `feature/password-recovery` (pendiente de revisión) |
+| 8 | Calidad y despliegue | Transversal | No | Pendiente (cierre) |
+
+### Etapa 1 — Cierre de HU39
+**Estado (2026-11-09): hecho.** `./gradlew check` completo sobre `development` (commit `9ad02ff`), con PostgreSQL 18.6 en Testcontainers: 369 pruebas, 0 fallos, 0 omitidas; cobertura JaCoCo de líneas 99,6 % e instrucciones 99,5 %. No hubo que corregir código.
+
+### Etapa 2 — Duplicados concurrentes de cuentas (RNF-11, RNF-13)
+- Hoy dos registros simultáneos con el mismo correo o documento responden `500`, porque la violación de la restricción única de PostgreSQL no se traduce.
+- Traducir esa violación al `409` de duplicado correspondiente (correo o documento) sin exponer detalles internos, en U2 y en la creación y edición de usuarios (U8, U9).
+- Pruebas de integración con solicitudes concurrentes.
+
+**Estado (2026-11-10): integrada en `development` (PR #40).**
+- `AccountCreator` escribe la cuenta (U2, U8 y el administrador inicial) o el cambio de correo (U9, nuevo método `changeEmail`) y la envía a la base dentro del caso de uso. Si la base la rechaza, `AccountConflictLookup` consulta en una transacción nueva (`REQUIRES_NEW`, solo lectura) qué dato ya está registrado y se responde `409 EMAIL_ALREADY_REGISTERED` o `409 ID_NUMBER_ALREADY_REGISTERED`, conservando la causa original. Si no es el correo ni el documento, el error se relanza sin cambios.
+- La consulta en una transacción nueva es necesaria porque PostgreSQL aborta la transacción que recibió el error; así la traducción tampoco depende de los nombres de las restricciones de la base desplegada, que se crea fuera de la aplicación.
+- `BusinessException` admite una causa, para no perder el error original.
+- Pruebas: `AccountCreatorTest` (7) y `DuplicateAccountRaceIntegrationTest` (3). La prueba de integración reproduce la carrera de forma determinista: una transacción de la prueba inserta la cuenta sin confirmar, la solicitud queda bloqueada en el índice único y, al confirmar la primera, debe recibir `409`. Contra el código anterior las dos pruebas de registro fallan con `500`.
+- `./gradlew check`: 379 pruebas en verde; cobertura de líneas 99,6 %.
+- Fuera de esta etapa: los mismos duplicados simultáneos en deportistas (`DUPLICATE_ATHLETE`) y disciplinas (`DUPLICATE_DISCIPLINE`) pueden seguir respondiendo `500`.
+
+### Etapa 3 — Reportes R1–R4 (KPI de los Procesos 1 y 2)
+- Contrato ya definido en `openapi.yaml`; cubre los KPI de la Definición:
+  - R1 (solo `ADMIN`): inscripciones por periodo y estado, tasas de completitud y abandono, tiempo promedio de confirmación, desglose por disciplina y pagos.
+  - R2 (`ADMIN`, `COACH`): sesiones programadas frente a realizadas, cobertura de registro (RNF-10), asistencia por grupo y disciplina.
+  - R3 (`ADMIN`, `COACH`, `GUARDIAN`): asistencia de un deportista, con verificación de propiedad.
+  - R4 (`ADMIN`, `COACH`): ausencias consecutivas con umbral configurable.
+- `ReportController` y `ReportService` (SAD 2.4.2), con consultas agregadas que eviten N+1; SQL nativo solo si se justifica (ADR-06).
+- Alcance por rol: el entrenador solo sus grupos y el acudiente solo sus deportistas.
+- Puede dividirse en dos HU: R1 (Proceso 1) y R2–R4 (Proceso 2).
+
+**Estado (2026-11-10): integrada en `development` (PR #41).** La corrección de SonarCloud separó `DateRangePolicy.requireReportRange` (rango cerrado, R2) de `requireOpenReportRange` (admite extremos nulos, R3).
+
+Reglas decididas el 2026-11-10:
+- R1: las matrículas del periodo son las que tienen ese mes de inicio (`period_month`). `completionRate` = `ACTIVE` / total y `abandonmentRate` = `CANCELLED` / total. `averageConfirmationHours` promedia `confirmedAt - createdAt` de las `ACTIVE` del periodo (`null` si no hay). `payments` cuenta el estado de pago actual de las matrículas `ACTIVE` vigentes en el periodo (iniciadas ese mes o antes), porque el estado de pago no guarda historia.
+- Fechas: R2 sin fechas abarca del primer día del mes de `dateTo` (hoy por defecto) hasta `dateTo`, y solo cuenta sesiones con fecha hasta hoy. R3 sin fechas abarca todo el historial. Con ambos extremos el rango máximo es de 366 días; un rango invertido o más largo responde `422 INVALID_DATE_RANGE` (`DateRangePolicy.requireReportRange`).
+- Alcance: el entrenador solo ve sus grupos actuales (como en A9); un filtro de grupo o disciplina ajeno devuelve datos vacíos, no `403`. En R3 el entrenador solo puede consultar a un deportista con matrícula vigente en uno de sus grupos y solo ve las marcas de esos grupos; el acudiente, solo a sus deportistas. R4 solo incluye deportistas con matrícula vigente en el grupo.
+- Porcentajes con un decimal (redondeo hacia arriba en la mitad). Sin base, las tasas obligatorias valen 0 y las opcionales (`attendanceRate`) son `null`.
+- R4 cuenta, por deportista y grupo, las marcas `ABSENT` seguidas desde la más reciente; `lastAttendance` es la fecha de la última `PRESENT`. Se calcula en memoria sobre una proyección ordenada, sin SQL nativo (ADR-06). Orden: racha descendente y luego apellidos y nombres en español (sin distinguir tildes ni mayúsculas).
+
+Implementación:
+- `ReportController` (`/reports`), `EnrollmentReportService` (R1), `AttendanceReportService` (R2, R3) y `RecurrentAbsenceService` (R4), todos de solo lectura; consultas JPQL agregadas con proyecciones, sin N+1. Se separaron en tres servicios en lugar de un único `ReportService` para mantener una responsabilidad por clase.
+- `SecurityConfig`: `/reports/enrollments` solo `ADMIN`; `/reports/attendance/athletes/*` los tres roles; el resto de `/reports/**`, `ADMIN` y `COACH`.
+- Las fechas opcionales de las consultas usan `cast(:fecha as LocalDate) is null`, porque PostgreSQL no puede inferir el tipo de un parámetro nulo.
+- Pruebas: `EnrollmentReportServiceTest`, `AttendanceReportServiceTest`, `RecurrentAbsenceServiceTest`, `PercentagesTest`, `DateRangePolicyTest` y `ReportIntegrationTest` (cálculos contra PostgreSQL, roles permitidos y denegados, alcance del entrenador, propiedad del acudiente, `404`, `422` y `400`).
+- `./gradlew check`: 405 pruebas en verde (404 en la corrida completa más la de desempates de R4, ejecutada aparte); cobertura de líneas 99,7 % y de ramas 96,0 %.
+
+### Etapa 4 — Indicadores del Proceso 3
+- KPI de la Definición P3: cuentas registradas por rol y periodo, porcentaje de acudientes con deportistas vinculados y número de cuentas inactivas.
+- Diseñar el endpoint en `openapi.yaml` (propuesto: `R5`, `GET /reports/users`, solo `ADMIN`) y aprobarlo antes de implementarlo.
+
+**Estado (2026-11-10): implementada en `feature/user-indicators-and-attendance-roster`, pendiente de revisión y PR.**
+
+Reglas decididas el 2026-11-10 (contrato aprobado):
+- `period` (`YYYY-MM`) es obligatorio, como en R1. `registeredInPeriod` cuenta las cuentas creadas ese mes en la zona de la academia, aunque hoy estén inactivas.
+- `active`, `inactive`, `inactiveAccounts` y `guardiansWithAthletes` son el estado actual, porque `users.status` no guarda historia (igual que el estado de pago en R1).
+- `guardianLinkRate` = acudientes activos con al menos un deportista / acudientes activos (0 si no hay acudientes activos).
+- `byRole` siempre trae `ADMIN`, `COACH` y `GUARDIAN`, en ese orden, con ceros si no hay cuentas.
+
+Implementación:
+- `UserReportService` (solo lectura) con dos consultas JPQL agregadas en `UserRepository` (`countCreatedByRole`, `countByRoleAndStatus`) y una en `GuardianRepository` (`countActiveWithAthletes`, con `exists`). Endpoint en `ReportController`; `SecurityConfig` agrupa `/reports/enrollments` y `/reports/users` como reportes solo `ADMIN`.
+- Pruebas: `UserReportServiceTest` (cálculos, límites del mes en la zona de la academia, ceros) y `ReportIntegrationTest` (diferencias antes y después contra PostgreSQL, periodo sin cuentas, `403` para `COACH` y `GUARDIAN`, `401` y `400`).
+
+### Etapa 5 — Ampliación de A7
+- Añadir a la lista de asistencia la edad del deportista y el contacto del acudiente (nombre y teléfono), solo para el entrenador del grupo y el administrador.
+- Cambio de la respuesta de A7 en `openapi.yaml`; requiere aprobación.
+
+**Estado (2026-11-10): implementada en `feature/user-indicators-and-attendance-roster`, pendiente de revisión y PR.**
+- Contrato aprobado el 2026-11-10: `AttendanceRosterEntry` añade `age` y `guardian` (`GuardianContact`: nombres, apellidos y teléfono nulable). A8 devuelve el mismo esquema. El frontend debe adaptarse.
+- La edad se calcula con la fecha actual de la academia (`AthleteAgePolicy.ageOn`), no con la de la sesión, porque es para emergencias.
+- `EnrollmentRepository.findRosterAthletes` carga el acudiente y su cuenta con `join fetch` en la misma consulta, sin N+1. `AttendanceMapper` solo expone nombres, apellidos y teléfono de la cuenta del acudiente.
+- El acceso no cambia: solo `ADMIN` y el entrenador actual del grupo; otro entrenador y el acudiente reciben `403` (probado en `SessionAttendanceIntegrationTest`).
+- Pruebas: `AttendanceServiceTest` (edad a la fecha actual en una sesión de hace un año, contacto del acudiente) y `SessionAttendanceIntegrationTest` (campos nuevos contra PostgreSQL, sin correo del acudiente, accesos denegados).
+
+Cierre de las etapas 4 y 5: `./gradlew check` el 2026-11-10 con PostgreSQL 18.6 en Testcontainers: 413 pruebas, 0 fallos, 0 omitidas; cobertura JaCoCo de líneas 99,7 %, instrucciones 99,6 % y ramas 96,0 %.
+
+### Etapa 6 — Correo y notificaciones (al final)
+- Definir el catálogo de eventos: registro de cuenta, recuperación de contraseña, inscripción, confirmación y rechazo, falta de cupos (`NO_SPOTS_AVAILABLE`), horarios publicados (`SCHEDULE_PUBLISHED`) y novedades (`SCHEDULE_CHANGE`).
+- Definir el ciclo de vida en `notifications` (persistencia antes o después del envío, estado, intentos).
+- `NotificationService` y adaptador Brevo desacoplado (ADR-09), con envíos posteriores al commit, reintentos y registro de fallos sin afirmar envíos no confirmados.
+- Pruebas con el proveedor simulado y medición de RNF-14 (≥ 95 %).
+- **Estado (2026-11-10): integrada en `development` (PR #43).** Catálogo aprobado: `ACCOUNT_REGISTERED`, `ENROLLMENT_CONFIRMED`, `ENROLLMENT_REJECTED`, `NO_SPOTS_AVAILABLE`, `SCHEDULE_PUBLISHED` y `SCHEDULE_CHANGE` (la recuperación de contraseña llega en la etapa 7). Ciclo de vida: `PENDING` después del commit (o del rollback en E6), envío asíncrono y `SENT` o `FAILED`, con hasta 3 intentos para fallos transitorios. Adaptador con `RestClient` en lugar del SDK (ADR-09 actualizado). `./gradlew check`: 448 pruebas sin fallos; cobertura JaCoCo 99,4 % de líneas y 96,1 % de ramas.
+- Limitaciones: los reintentos viven en memoria y se pierden si la aplicación se reinicia; no hay reenvío programado de las notificaciones `FAILED`; RNF-14 solo puede medirse con envíos reales en el despliegue.
+
+### Etapa 7 — Recuperación de contraseña (al final, después del correo)
+- Contrato de solicitud y restablecimiento (públicos, bajo `/auth`) y tabla de tokens en el MER (usuario, hash del token, vencimiento, fecha de uso y creación).
+- Token aleatorio de un solo uso, guardado solo como hash, con vencimiento corto; la solicitud responde igual exista o no el correo; el restablecimiento aplica `PasswordPolicy`.
+- **Estado (2026-11-10): implementada en `feature/password-recovery`, pendiente de revisión.** U13 y U14 (contrato aprobado el 2026-11-10), entidad `PasswordResetToken`, `PasswordResetService`, correo `PASSWORD_RESET` y variable `PASSWORD_RESET_URL`. `./gradlew check`: 466 pruebas sin fallos; cobertura JaCoCo 99,3 % de líneas y 96,2 % de ramas.
+- Limitaciones: sin límite de solicitudes por correo o IP; los JWT emitidos no se revocan; la tabla falta en `MER.pdf`.
+
+### Etapa 8 — Calidad y despliegue (cierre)
+- Ejecutar la suite completa y revisar la cobertura (JaCoCo) y el Javadoc (RNF-17, ≥ 80 %).
+- Medir con evidencia reproducible los RNF de rendimiento (RNF-04, RNF-06, RNF-07) y de seguridad (RNF-13, RNF-15, RNF-16).
 - Validar CORS, secretos y configuración general.
 - Mantener el pipeline de GitHub Actions y el despliegue en Railway (ADR-10).
+
+### Pendiente de confirmar
+- Estado de pago consolidado por deportista: E7 ya filtra por `athleteId` y devuelve el `paymentStatus` de cada matrícula. Se propone darlo por cubierto sin endpoint nuevo.
+
+## Mejoras futuras (fuera de la Entrega 3)
+Decididas el 2026-11-09; se retoman solo si queda tiempo al final del proyecto:
+- Rechazo de tokens vigentes de cuentas inactivadas (RNF-13). Hoy el login ya rechaza las cuentas inactivas (`USER_INACTIVE`), pero un token emitido antes de la inactivación sigue vigente hasta vencer.
+- Inactivación de deportistas para atender la supresión de datos (estado en `athletes` en el MER y cambio de `openapi.yaml`).
+- Versión de la política de datos aceptada.
+- Auditoría de consultas a datos de menores.
